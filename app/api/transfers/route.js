@@ -12,6 +12,7 @@ export async function GET(request) {
     // Get query parameters for filtering
     const { searchParams } = new URL(request.url);
     const itemId = searchParams.get('item_id');
+    const roomId = searchParams.get('room_id');
     const fromRoomId = searchParams.get('from_room_id');
     const toRoomId = searchParams.get('to_room_id');
     const userId = searchParams.get('user_id');
@@ -42,6 +43,11 @@ export async function GET(request) {
     if (itemId) {
       conditions.push('t.item_id = ?');
       params.push(itemId);
+    }
+    
+    if (roomId) {
+      conditions.push('(t.from_room_id = ? OR t.to_room_id = ?)');
+      params.push(roomId, roomId);
     }
     
     if (fromRoomId) {
@@ -140,6 +146,12 @@ export async function POST(request) {
       await db.run(
         'UPDATE items SET quantity = quantity - ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ? AND room_id = ?',
         [body.quantity, body.item_id, body.from_room_id]
+      );
+      
+      // Delete the item if quantity becomes zero
+      await db.run(
+        'DELETE FROM items WHERE id = ? AND quantity <= 0',
+        [body.item_id]
       );
       
       // Check if the item already exists in the destination room

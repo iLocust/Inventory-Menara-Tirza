@@ -15,8 +15,7 @@ export default function TransferHistory({ roomId, itemId }) {
         const params = new URLSearchParams();
         
         if (roomId) {
-          params.append('from_room_id', roomId);
-          params.append('to_room_id', roomId);
+          params.append('room_id', roomId);
         }
         
         if (itemId) {

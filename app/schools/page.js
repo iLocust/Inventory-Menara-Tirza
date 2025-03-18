@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import SchoolForm from '../../components/SchoolForm';
+import Breadcrumb from '../../components/Breadcrumb';
 
 export default function SchoolsPage() {
   const [schools, setSchools] = useState([]);
@@ -83,8 +84,9 @@ export default function SchoolsPage() {
 
   return (
     <div>
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+      <Breadcrumb />
+      <header className="bg-white shadow rounded-lg">
+        <div className="py-6 px-4 sm:px-6 lg:px-8">
           <h1 className="text-3xl font-bold text-gray-900">Schools</h1>
         </div>
       </header>

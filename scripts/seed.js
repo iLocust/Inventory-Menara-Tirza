@@ -18,7 +18,6 @@ async function seed() {
     // Add 6 schools
     console.log('Adding schools...');
     const schools = [
-      { name: 'North Elementary School', address: '123 North St', phone: '555-1001', email: 'info@north.edu' },
       { name: 'South High School', address: '456 South Ave', phone: '555-1002', email: 'info@south.edu' },
     ];
     

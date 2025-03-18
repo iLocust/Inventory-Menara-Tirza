@@ -47,6 +47,9 @@ export async function GET(request) {
       params.push(categoryId);
     }
     
+    // Only get items with quantity > 0
+    conditions.push('i.quantity > 0');
+    
     if (conditions.length > 0) {
       query += ' WHERE ' + conditions.join(' AND ');
     }

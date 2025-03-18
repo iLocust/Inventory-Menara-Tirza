@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import ItemForm from '../../../../components/ItemForm';
+import Breadcrumb from '../../../../components/Breadcrumb';
 
 export default function RoomItemsPage() {
   const params = useParams();
@@ -147,7 +148,8 @@ export default function RoomItemsPage() {
 
   return (
     <div>
-      <header className="bg-white shadow">
+      <Breadcrumb />
+      <header className="bg-white shadow rounded-lg">
         <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
             <div>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import TransferForm from '../../components/TransferForm';
 import TransferHistory from '../../components/TransferHistory';
+import Breadcrumb from '../../components/Breadcrumb';
 
 export default function TransfersPage() {
   const [showForm, setShowForm] = useState(false);
@@ -66,7 +67,8 @@ export default function TransfersPage() {
 
   return (
     <div>
-      <header className="bg-white shadow">
+      <Breadcrumb />
+      <header className="bg-white shadow rounded-lg">
         <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
           <h1 className="text-3xl font-bold text-gray-900">Inventory Transfers</h1>
         </div>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import Breadcrumb from '../../../components/Breadcrumb';
 
 export default function SchoolDetail() {
   const params = useParams();
@@ -100,7 +101,8 @@ export default function SchoolDetail() {
 
   return (
     <div>
-      <header className="bg-white shadow">
+      <Breadcrumb />
+      <header className="bg-white shadow rounded-lg">
         <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <h1 className="text-3xl font-bold text-gray-900">{school.name}</h1>
