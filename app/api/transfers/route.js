@@ -19,7 +19,14 @@ export async function GET(request) {
     
     let query = `
       SELECT
-        t.*,
+        t.id,
+        t.item_id,
+        t.quantity,
+        t.from_room_id,
+        t.to_room_id,
+        t.transferred_by_user_id,
+        t.transfer_date,
+        t.notes,
         i.name as item_name,
         fr.name as from_room_name,
         tr.name as to_room_name,
@@ -73,11 +80,20 @@ export async function GET(request) {
     
     const transfers = await db.all(query, params);
     
-    return NextResponse.json(transfers);
+    // Ensure dates are properly serialized
+    const serializedTransfers = transfers.map(transfer => {
+      const serialized = {...transfer};
+      if (serialized.transfer_date) {
+        serialized.transfer_date = new Date(serialized.transfer_date).toISOString();
+      }
+      return serialized;
+    });
+    
+    return NextResponse.json(serializedTransfers);
   } catch (error) {
     console.error('Error fetching transfers:', error);
     return NextResponse.json(
-      { message: 'Failed to fetch transfers', error: error.message },
+      { message: 'Failed to fetch transfers', error: error.message ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
@@ -85,6 +101,9 @@ export async function GET(request) {
 
 // POST new transfer (move items between rooms)
 export async function POST(request) {
+  let db = null;
+  let transactionStarted = false;
+  
   try {
     const body = await request.json();
     
@@ -104,131 +123,156 @@ export async function POST(request) {
       );
     }
     
-    const db = await openDb();
+    db = await openDb();
     
     // Start a transaction
     await db.run('BEGIN TRANSACTION');
+    transactionStarted = true;
     
-    try {
-      // Check if the item exists in the source room with sufficient quantity
-      const sourceItem = await db.get(
-        'SELECT * FROM items WHERE id = ? AND room_id = ?', 
-        [body.item_id, body.from_room_id]
+    // Check if the item exists in the source room with sufficient quantity
+    const sourceItem = await db.get(
+      'SELECT * FROM items WHERE id = ? AND room_id = ?', 
+      [body.item_id, body.from_room_id]
+    );
+    
+    if (!sourceItem) {
+      await db.run('ROLLBACK');
+      transactionStarted = false;
+      return NextResponse.json(
+        { message: 'Item not found in the source room' },
+        { status: 404 }
       );
-      
-      if (!sourceItem) {
-        await db.run('ROLLBACK');
-        return NextResponse.json(
-          { message: 'Item not found in the source room' },
-          { status: 404 }
-        );
-      }
-      
-      if (sourceItem.quantity < body.quantity) {
-        await db.run('ROLLBACK');
-        return NextResponse.json(
-          { message: `Not enough items in the source room. Available: ${sourceItem.quantity}` },
-          { status: 400 }
-        );
-      }
-      
-      // Check if the destination room exists
-      const destRoom = await db.get('SELECT * FROM rooms WHERE id = ?', body.to_room_id);
-      if (!destRoom) {
-        await db.run('ROLLBACK');
-        return NextResponse.json(
-          { message: 'Destination room not found' },
-          { status: 404 }
-        );
-      }
-      
-      // Reduce quantity in source room
+    }
+    
+    if (sourceItem.quantity < body.quantity) {
+      await db.run('ROLLBACK');
+      transactionStarted = false;
+      return NextResponse.json(
+        { message: `Not enough items in the source room. Available: ${sourceItem.quantity}` },
+        { status: 400 }
+      );
+    }
+    
+    // Check if the destination room exists
+    const destRoom = await db.get('SELECT * FROM rooms WHERE id = ?', body.to_room_id);
+    if (!destRoom) {
+      await db.run('ROLLBACK');
+      transactionStarted = false;
+      return NextResponse.json(
+        { message: 'Destination room not found' },
+        { status: 404 }
+      );
+    }
+    
+    // Reduce quantity in source room
+    await db.run(
+      'UPDATE items SET quantity = quantity - ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ? AND room_id = ?',
+      [body.quantity, body.item_id, body.from_room_id]
+    );
+    
+    // Delete the item if quantity becomes zero
+    await db.run(
+      'DELETE FROM items WHERE id = ? AND quantity <= 0',
+      [body.item_id]
+    );
+    
+    // Check if the item already exists in the destination room
+    const destItem = await db.get(
+      'SELECT * FROM items WHERE name = ? AND category_id = ? AND room_id = ?',
+      [sourceItem.name, sourceItem.category_id, body.to_room_id]
+    );
+    
+    if (destItem) {
+      // Update quantity in destination room
       await db.run(
-        'UPDATE items SET quantity = quantity - ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ? AND room_id = ?',
-        [body.quantity, body.item_id, body.from_room_id]
+        'UPDATE items SET quantity = quantity + ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?',
+        [body.quantity, destItem.id]
       );
-      
-      // Delete the item if quantity becomes zero
+    } else {
+      // Create a new item in the destination room
       await db.run(
-        'DELETE FROM items WHERE id = ? AND quantity <= 0',
-        [body.item_id]
-      );
-      
-      // Check if the item already exists in the destination room
-      const destItem = await db.get(
-        'SELECT * FROM items WHERE name = ? AND category_id = ? AND room_id = ?',
-        [sourceItem.name, sourceItem.category_id, body.to_room_id]
-      );
-      
-      if (destItem) {
-        // Update quantity in destination room
-        await db.run(
-          'UPDATE items SET quantity = quantity + ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?',
-          [body.quantity, destItem.id]
-        );
-      } else {
-        // Create a new item in the destination room
-        await db.run(
-          `INSERT INTO items (
-            name, category_id, room_id, quantity, condition, acquisition_date, notes
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [
-            sourceItem.name,
-            sourceItem.category_id,
-            body.to_room_id,
-            body.quantity,
-            sourceItem.condition,
-            sourceItem.acquisition_date,
-            sourceItem.notes
-          ]
-        );
-      }
-      
-      // Record the transfer in the history
-      const result = await db.run(
-        `INSERT INTO item_transfers (
-          item_id, quantity, from_room_id, to_room_id, transferred_by_user_id, notes
-        ) VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO items (
+          name, category_id, room_id, quantity, condition, acquisition_date, notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
-          body.item_id,
-          body.quantity,
-          body.from_room_id,
+          sourceItem.name,
+          sourceItem.category_id,
           body.to_room_id,
-          body.transferred_by_user_id || null,
-          body.notes || ''
+          body.quantity,
+          sourceItem.condition,
+          sourceItem.acquisition_date,
+          sourceItem.notes
         ]
       );
-      
-      // Commit the transaction
-      await db.run('COMMIT');
-      
-      // Get the full transfer record with joined data
-      const newTransfer = await db.get(`
-        SELECT
-          t.*,
-          i.name as item_name,
-          fr.name as from_room_name,
-          tr.name as to_room_name,
-          u.name as transferred_by_name
-        FROM
-          item_transfers t
-        JOIN items i ON t.item_id = i.id
-        JOIN rooms fr ON t.from_room_id = fr.id
-        JOIN rooms tr ON t.to_room_id = tr.id
-        LEFT JOIN users u ON t.transferred_by_user_id = u.id
-        WHERE t.id = ?
-      `, result.lastID);
-      
-      return NextResponse.json(newTransfer, { status: 201 });
-    } catch (error) {
-      // Rollback in case of error
-      await db.run('ROLLBACK');
-      throw error;
     }
+    
+    // Record the transfer in the history
+    const result = await db.run(
+      `INSERT INTO item_transfers (
+        item_id, quantity, from_room_id, to_room_id, transferred_by_user_id, notes
+      ) VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        body.item_id,
+        body.quantity,
+        body.from_room_id,
+        body.to_room_id,
+        body.transferred_by_user_id || null,
+        body.notes || ''
+      ]
+    );
+    
+    // Commit the transaction
+    await db.run('COMMIT');
+    transactionStarted = false;
+    
+    // Get the full transfer record with joined data
+    const newTransfer = await db.get(`
+      SELECT
+        t.id,
+        t.item_id,
+        t.quantity,
+        t.from_room_id,
+        t.to_room_id,
+        t.transferred_by_user_id,
+        t.transfer_date,
+        t.notes,
+        i.name as item_name,
+        fr.name as from_room_name,
+        tr.name as to_room_name,
+        u.name as transferred_by_name
+      FROM
+        item_transfers t
+      JOIN items i ON t.item_id = i.id
+      JOIN rooms fr ON t.from_room_id = fr.id
+      JOIN rooms tr ON t.to_room_id = tr.id
+      LEFT JOIN users u ON t.transferred_by_user_id = u.id
+      WHERE t.id = ?
+    `, result.lastID);
+    
+    // Convert dates to ISO strings for JSON serialization
+    if (newTransfer && newTransfer.transfer_date) {
+      newTransfer.transfer_date = new Date(newTransfer.transfer_date).toISOString();
+    }
+    
+    return NextResponse.json(newTransfer || { id: result.lastID, success: true }, { status: 201 });
   } catch (error) {
     console.error('Error creating transfer:', error);
+    
+    // Only try to rollback if we have an active transaction
+    if (db && transactionStarted) {
+      try {
+        await db.run('ROLLBACK');
+      } catch (rollbackError) {
+        console.error('Error during rollback:', rollbackError);
+      }
+    }
+    
+    // Ensure we're only returning serializable data
+    const errorMessage = error.message || 'Unknown error';
+    console.error('Full error object:', Object.keys(error));
+    
     return NextResponse.json(
-      { message: 'Failed to transfer items', error: error.message },
+      { message: 'Failed to transfer items', error: errorMessage },
       { status: 500 }
     );
   }
