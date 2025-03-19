@@ -13,7 +13,7 @@ export default function UsersPage() {
     name: '',
     email: '',
     phone: '',
-    role: 'teacher'
+    role: 'guru'
   });
 
   // Fetch users
@@ -234,9 +234,11 @@ export default function UsersPage() {
                       onChange={handleChange}
                       className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     >
-                      <option value="teacher">Teacher</option>
-                      <option value="admin">Admin</option>
+                      <option value="admin">Admin/Head Office</option>
+                      <option value="kepala_sekolah">Kepala Sekolah</option>
+                      <option value="guru">Guru</option>
                       <option value="staff">Staff</option>
+                      <option value="murid">Murid</option>
                     </select>
                   </div>
                 </div>
@@ -303,10 +305,17 @@ export default function UsersPage() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                           user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 
-                          user.role === 'staff' ? 'bg-blue-100 text-blue-800' : 
-                          'bg-green-100 text-green-800'
+                          user.role === 'kepala_sekolah' ? 'bg-red-100 text-red-800' :
+                          user.role === 'guru' ? 'bg-green-100 text-green-800' :
+                          user.role === 'staff' ? 'bg-blue-100 text-blue-800' :
+                          user.role === 'murid' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-gray-100 text-gray-800'
                         }`}>
-                          {user.role || 'teacher'}
+                          {user.role === 'admin' ? 'Admin/Head Office' :
+                           user.role === 'kepala_sekolah' ? 'Kepala Sekolah' :
+                           user.role === 'guru' ? 'Guru' :
+                           user.role === 'staff' ? 'Staff' :
+                           user.role === 'murid' ? 'Murid' : user.role}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">

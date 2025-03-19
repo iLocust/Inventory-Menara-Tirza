@@ -74,7 +74,7 @@ export async function PUT(request, { params }) {
         body.name,
         body.email || null,
         body.phone || null,
-        body.role || 'teacher',
+        body.role || 'guru',
         userId
       ]
     );

@@ -53,7 +53,7 @@ export async function POST(request) {
         body.name,
         body.email || null,
         body.phone || null,
-        body.role || 'teacher'
+        body.role || 'guru'
       ]
     );
     
