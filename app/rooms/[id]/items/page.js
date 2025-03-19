@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import ItemForm from '../../../../components/ItemForm';
+import TransferForm from '../../../../components/TransferForm';
+import TransferHistory from '../../../../components/TransferHistory';
 import Breadcrumb from '../../../../components/Breadcrumb';
 
 export default function RoomItemsPage() {
@@ -16,6 +18,8 @@ export default function RoomItemsPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState(null);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -72,6 +76,43 @@ export default function RoomItemsPage() {
   const handleEdit = (item) => {
     setEditItem(item);
     setShowForm(true);
+  };
+
+  // Handle transfer modal
+  const handleTransferClick = (item) => {
+    setSelectedItem(item);
+    setShowTransferModal(true);
+  };
+
+  // Handle transfer submission
+  const handleTransferSubmit = async (formData) => {
+    try {
+      const response = await fetch('/api/transfers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        alert(`Error: ${errorData.message}`);
+        return;
+      }
+      
+      // Close the modal
+      setShowTransferModal(false);
+      setSelectedItem(null);
+      
+      // Refresh the item list
+      const updatedItemsRes = await fetch(`/api/items?room_id=${roomId}`);
+      const updatedItemsData = await updatedItemsRes.json();
+      setItems(updatedItemsData);
+    } catch (error) {
+      console.error('Error creating transfer:', error);
+      alert('Failed to transfer item. Please try again.');
+    }
   };
 
   // Handle form submission (create/update)
@@ -251,16 +292,17 @@ export default function RoomItemsPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex space-x-2">
-                          <Link href={`/transfers?item_id=${item.id}`}>
-                            <button className="px-3 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200">
-                              Transfer
-                            </button>
-                          </Link>
                           <button
                             onClick={() => handleEdit(item)}
                             className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200"
                           >
                             Edit
+                          </button>
+                          <button
+                            onClick={() => handleTransferClick(item)}
+                            className="px-3 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200"
+                          >
+                            Transfer
                           </button>
                           <button
                             onClick={() => handleDelete(item.id)}
@@ -276,6 +318,30 @@ export default function RoomItemsPage() {
               </table>
             </div>
           )}
+          
+          {/* Transfer Modal */}
+          {showTransferModal && selectedItem && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg shadow-lg w-full max-w-md mx-auto p-6">
+                <h3 className="text-lg font-semibold mb-4">Transfer Item</h3>
+                <TransferForm
+                  item={selectedItem}
+                  onSubmit={handleTransferSubmit}
+                  onCancel={() => {
+                    setShowTransferModal(false);
+                    setSelectedItem(null);
+                  }}
+                  schoolId={room.school_id}
+                />
+              </div>
+            </div>
+          )}
+          
+          {/* Transfer History Section */}
+          <div className="mt-10">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">Transfer History</h2>
+            <TransferHistory roomId={roomId} />
+          </div>
         </div>
       </div>
     </div>

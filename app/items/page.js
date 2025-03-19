@@ -324,11 +324,6 @@ export default function ItemsPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex space-x-2">
-                          <Link href={`/transfers?item_id=${item.id}`}>
-                            <button className="px-3 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200">
-                              Transfer
-                            </button>
-                          </Link>
                           <button
                             onClick={() => handleEdit(item)}
                             className="px-3 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200"

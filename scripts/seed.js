@@ -9,7 +9,6 @@ async function seed() {
     // Clear existing data first
     console.log('Clearing existing data...');
     // Delete in proper order to respect foreign key constraints
-    await db.run('DELETE FROM item_transfers');
     await db.run('DELETE FROM items');
     await db.run('DELETE FROM rooms'); 
     await db.run('DELETE FROM users');
@@ -202,52 +201,6 @@ async function seed() {
         await db.run(
           'INSERT INTO items (name, category_id, room_id, quantity, condition, acquisition_date, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
           ['Projector Bulb', 2, room.id, 5, 'New', null, 'Replacement projector bulbs']
-        );
-      }
-    }
-    
-    // Create some transfer records
-    console.log('Adding transfer records...');
-    
-    // Get all classrooms for transfers
-    const classroomRows = await db.all('SELECT id FROM rooms WHERE type_id = 1 LIMIT 10');
-    const classroomIds = classroomRows.map(row => row.id);
-    
-    // Get desks item IDs for transfers
-    const deskItems = await db.all('SELECT id, room_id FROM items WHERE name LIKE "%Desk%" AND quantity >= 5 LIMIT 5');
-    
-    // Make some transfers between classrooms
-    for (let i = 0; i < deskItems.length; i++) {
-      const fromRoomId = deskItems[i].room_id;
-      // Find a different room to transfer to
-      let toRoomId;
-      do {
-        toRoomId = classroomIds[Math.floor(Math.random() * classroomIds.length)];
-      } while (toRoomId === fromRoomId);
-      
-      // Record a transfer
-      await db.run(
-        'INSERT INTO item_transfers (item_id, quantity, from_room_id, to_room_id, transferred_by_user_id, notes) VALUES (?, ?, ?, ?, ?, ?)',
-        [deskItems[i].id, 5, fromRoomId, toRoomId, userIds[0], 'Initial transfer for classroom balancing']
-      );
-      
-      // Update quantities in source and destination
-      await db.run('UPDATE items SET quantity = quantity - 5 WHERE id = ?', deskItems[i].id);
-      
-      // Check if the item already exists in destination room
-      const existingItem = await db.get(
-        'SELECT id FROM items WHERE name LIKE "%Desk%" AND room_id = ?',
-        toRoomId
-      );
-      
-      if (existingItem) {
-        await db.run('UPDATE items SET quantity = quantity + 5 WHERE id = ?', existingItem.id);
-      } else {
-        // Clone the item to the new room with the transferred quantity
-        const sourceItem = await db.get('SELECT * FROM items WHERE id = ?', deskItems[i].id);
-        await db.run(
-          'INSERT INTO items (name, category_id, room_id, quantity, condition, acquisition_date, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [sourceItem.name, sourceItem.category_id, toRoomId, 5, sourceItem.condition, sourceItem.acquisition_date, sourceItem.notes]
         );
       }
     }

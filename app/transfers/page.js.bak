@@ -12,6 +12,7 @@ export default function TransfersPage() {
   const [selectedSchool, setSelectedSchool] = useState('');
   const [selectedRoom, setSelectedRoom] = useState('');
   const [loading, setLoading] = useState(true);
+  const [refreshHistory, setRefreshHistory] = useState(0);
 
   // Fetch reference data
   useEffect(() => {
@@ -57,8 +58,15 @@ export default function TransfersPage() {
         throw new Error(errorData.message || 'Error transferring items');
       }
 
+      const transferData = await response.json();
+      console.log('Transfer completed:', transferData);
+      
       alert('Transfer completed successfully!');
       setShowForm(false);
+      // Refresh transfer history with a unique value to force refresh
+      const timestamp = Date.now();
+      console.log('Setting refresh trigger to:', timestamp);
+      setRefreshHistory(timestamp);
     } catch (error) {
       console.error('Error transferring items:', error);
       alert(`Error: ${error.message}`);
@@ -143,6 +151,7 @@ export default function TransfersPage() {
             <TransferHistory
               roomId={selectedRoom || null}
               itemId={null}
+              refreshTrigger={refreshHistory}
             />
           </div>
         </div>

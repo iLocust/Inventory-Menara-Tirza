@@ -1,46 +1,32 @@
 import { NextResponse } from 'next/server';
 import openDb, { initializeDb } from '../../../lib/db';
 
-// GET transfer history with filtering options
+// GET all transfers or filtered by item_id, source_room_id, or destination_room_id
 export async function GET(request) {
   try {
-    // Initialize DB (creates tables if they don't exist)
     await initializeDb();
-    
     const db = await openDb();
     
     // Get query parameters for filtering
     const { searchParams } = new URL(request.url);
     const itemId = searchParams.get('item_id');
-    const roomId = searchParams.get('room_id');
-    const fromRoomId = searchParams.get('from_room_id');
-    const toRoomId = searchParams.get('to_room_id');
-    const userId = searchParams.get('user_id');
+    const sourceRoomId = searchParams.get('source_room_id');
+    const destinationRoomId = searchParams.get('destination_room_id');
+    const roomId = searchParams.get('room_id'); // Either source or destination
     
     let query = `
       SELECT
-        t.id,
-        t.item_id,
-        t.quantity,
-        t.from_room_id,
-        t.to_room_id,
-        t.transferred_by_user_id,
-        t.transfer_date,
-        t.notes,
+        t.*,
         i.name as item_name,
-        fr.name as from_room_name,
-        tr.name as to_room_name,
-        u.name as transferred_by_name,
-        fs.name as from_school_name,
-        ts.name as to_school_name
+        sr.name as source_room_name,
+        dr.name as destination_room_name,
+        sch.name as school_name
       FROM
         item_transfers t
       JOIN items i ON t.item_id = i.id
-      JOIN rooms fr ON t.from_room_id = fr.id
-      JOIN rooms tr ON t.to_room_id = tr.id
-      JOIN schools fs ON fr.school_id = fs.id
-      JOIN schools ts ON tr.school_id = ts.id
-      LEFT JOIN users u ON t.transferred_by_user_id = u.id
+      JOIN rooms sr ON t.source_room_id = sr.id
+      JOIN rooms dr ON t.destination_room_id = dr.id
+      JOIN schools sch ON sr.school_id = sch.id
     `;
     
     const params = [];
@@ -52,24 +38,19 @@ export async function GET(request) {
       params.push(itemId);
     }
     
+    if (sourceRoomId) {
+      conditions.push('t.source_room_id = ?');
+      params.push(sourceRoomId);
+    }
+    
+    if (destinationRoomId) {
+      conditions.push('t.destination_room_id = ?');
+      params.push(destinationRoomId);
+    }
+    
     if (roomId) {
-      conditions.push('(t.from_room_id = ? OR t.to_room_id = ?)');
+      conditions.push('(t.source_room_id = ? OR t.destination_room_id = ?)');
       params.push(roomId, roomId);
-    }
-    
-    if (fromRoomId) {
-      conditions.push('t.from_room_id = ?');
-      params.push(fromRoomId);
-    }
-    
-    if (toRoomId) {
-      conditions.push('t.to_room_id = ?');
-      params.push(toRoomId);
-    }
-    
-    if (userId) {
-      conditions.push('t.transferred_by_user_id = ?');
-      params.push(userId);
     }
     
     if (conditions.length > 0) {
@@ -80,199 +61,180 @@ export async function GET(request) {
     
     const transfers = await db.all(query, params);
     
-    // Ensure dates are properly serialized
-    const serializedTransfers = transfers.map(transfer => {
-      const serialized = {...transfer};
-      if (serialized.transfer_date) {
-        serialized.transfer_date = new Date(serialized.transfer_date).toISOString();
-      }
-      return serialized;
-    });
-    
-    return NextResponse.json(serializedTransfers);
+    return NextResponse.json(transfers);
   } catch (error) {
     console.error('Error fetching transfers:', error);
     return NextResponse.json(
-      { message: 'Failed to fetch transfers', error: error.message ? error.message : 'Unknown error' },
+      { message: 'Failed to fetch transfers', error: error.message },
       { status: 500 }
     );
   }
 }
 
-// POST new transfer (move items between rooms)
+// POST a new transfer
 export async function POST(request) {
-  let db = null;
-  let transactionStarted = false;
-  
   try {
     const body = await request.json();
     
     // Validate required fields
-    if (!body.item_id || !body.from_room_id || !body.to_room_id || body.quantity <= 0) {
+    if (!body.item_id || !body.source_room_id || !body.destination_room_id || !body.quantity) {
       return NextResponse.json(
-        { message: 'Item ID, from room ID, to room ID, and quantity (> 0) are required' },
+        { message: 'Item ID, source room ID, destination room ID, and quantity are required' },
         { status: 400 }
       );
     }
     
-    // Prevent transferring to the same room
-    if (body.from_room_id === body.to_room_id) {
+    if (body.quantity <= 0) {
       return NextResponse.json(
-        { message: 'Cannot transfer items to the same room' },
+        { message: 'Quantity must be greater than 0' },
+        { status: 400 }
+      );
+    }
+
+    if (body.source_room_id === body.destination_room_id) {
+      return NextResponse.json(
+        { message: 'Source and destination rooms must be different' },
         { status: 400 }
       );
     }
     
-    db = await openDb();
+    const db = await openDb();
     
-    // Start a transaction
-    await db.run('BEGIN TRANSACTION');
-    transactionStarted = true;
-    
-    // Check if the item exists in the source room with sufficient quantity
-    const sourceItem = await db.get(
-      'SELECT * FROM items WHERE id = ? AND room_id = ?', 
-      [body.item_id, body.from_room_id]
-    );
-    
-    if (!sourceItem) {
-      await db.run('ROLLBACK');
-      transactionStarted = false;
+    // Get the current item to check if there's enough quantity
+    const item = await db.get('SELECT * FROM items WHERE id = ?', body.item_id);
+    if (!item) {
       return NextResponse.json(
-        { message: 'Item not found in the source room' },
+        { message: 'Item not found' },
         { status: 404 }
       );
     }
     
-    if (sourceItem.quantity < body.quantity) {
-      await db.run('ROLLBACK');
-      transactionStarted = false;
+    // Verify source room
+    const sourceRoom = await db.get('SELECT * FROM rooms WHERE id = ?', body.source_room_id);
+    if (!sourceRoom) {
       return NextResponse.json(
-        { message: `Not enough items in the source room. Available: ${sourceItem.quantity}` },
-        { status: 400 }
+        { message: 'Source room not found' },
+        { status: 404 }
       );
     }
     
-    // Check if the destination room exists
-    const destRoom = await db.get('SELECT * FROM rooms WHERE id = ?', body.to_room_id);
+    // Verify destination room
+    const destRoom = await db.get('SELECT * FROM rooms WHERE id = ?', body.destination_room_id);
     if (!destRoom) {
-      await db.run('ROLLBACK');
-      transactionStarted = false;
       return NextResponse.json(
         { message: 'Destination room not found' },
         { status: 404 }
       );
     }
     
-    // Reduce quantity in source room
-    await db.run(
-      'UPDATE items SET quantity = quantity - ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ? AND room_id = ?',
-      [body.quantity, body.item_id, body.from_room_id]
-    );
-    
-    // Delete the item if quantity becomes zero
-    await db.run(
-      'DELETE FROM items WHERE id = ? AND quantity <= 0',
-      [body.item_id]
-    );
-    
-    // Check if the item already exists in the destination room
-    const destItem = await db.get(
-      'SELECT * FROM items WHERE name = ? AND category_id = ? AND room_id = ?',
-      [sourceItem.name, sourceItem.category_id, body.to_room_id]
-    );
-    
-    if (destItem) {
-      // Update quantity in destination room
-      await db.run(
-        'UPDATE items SET quantity = quantity + ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?',
-        [body.quantity, destItem.id]
+    // Verify both rooms are in same school
+    if (sourceRoom.school_id !== destRoom.school_id) {
+      return NextResponse.json(
+        { message: 'Cannot transfer items between different schools' },
+        { status: 400 }
       );
-    } else {
-      // Create a new item in the destination room
-      await db.run(
-        `INSERT INTO items (
-          name, category_id, room_id, quantity, condition, acquisition_date, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    }
+    
+    // Check if there's enough quantity
+    if (item.quantity < body.quantity) {
+      return NextResponse.json(
+        { message: `Not enough items to transfer. Available: ${item.quantity}` },
+        { status: 400 }
+      );
+    }
+    
+    // Start a transaction
+    await db.run('BEGIN TRANSACTION');
+    
+    try {
+      // Insert transfer record
+      const result = await db.run(
+        `INSERT INTO item_transfers (
+          item_id,
+          source_room_id,
+          destination_room_id,
+          quantity,
+          notes
+        ) VALUES (?, ?, ?, ?, ?)`,
         [
-          sourceItem.name,
-          sourceItem.category_id,
-          body.to_room_id,
+          body.item_id,
+          body.source_room_id,
+          body.destination_room_id,
           body.quantity,
-          sourceItem.condition,
-          sourceItem.acquisition_date,
-          sourceItem.notes
+          body.notes || ''
         ]
       );
+      
+      // Reduce quantity from source
+      await db.run(
+        'UPDATE items SET quantity = quantity - ? WHERE id = ?',
+        [body.quantity, body.item_id]
+      );
+      
+      // Check if the item already exists in the destination room
+      const existingItem = await db.get(
+        'SELECT * FROM items WHERE name = ? AND category_id = ? AND room_id = ?',
+        [item.name, item.category_id, body.destination_room_id]
+      );
+      
+      if (existingItem) {
+        // Update existing item in destination
+        await db.run(
+          'UPDATE items SET quantity = quantity + ? WHERE id = ?',
+          [body.quantity, existingItem.id]
+        );
+      } else {
+        // Create new item in destination
+        await db.run(
+          `INSERT INTO items (
+            name,
+            category_id,
+            room_id,
+            quantity,
+            condition,
+            acquisition_date,
+            notes
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            item.name,
+            item.category_id,
+            body.destination_room_id,
+            body.quantity,
+            item.condition,
+            item.acquisition_date,
+            item.notes
+          ]
+        );
+      }
+      
+      // Commit the transaction
+      await db.run('COMMIT');
+      
+      // Get the newly inserted transfer with joined data
+      const newTransfer = await db.get(`
+        SELECT
+          t.*,
+          i.name as item_name,
+          sr.name as source_room_name,
+          dr.name as destination_room_name
+        FROM
+          item_transfers t
+        JOIN items i ON t.item_id = i.id
+        JOIN rooms sr ON t.source_room_id = sr.id
+        JOIN rooms dr ON t.destination_room_id = dr.id
+        WHERE t.id = ?
+      `, result.lastID);
+      
+      return NextResponse.json(newTransfer, { status: 201 });
+    } catch (error) {
+      // Rollback the transaction in case of error
+      await db.run('ROLLBACK');
+      throw error;
     }
-    
-    // Record the transfer in the history
-    const result = await db.run(
-      `INSERT INTO item_transfers (
-        item_id, quantity, from_room_id, to_room_id, transferred_by_user_id, notes
-      ) VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        body.item_id,
-        body.quantity,
-        body.from_room_id,
-        body.to_room_id,
-        body.transferred_by_user_id || null,
-        body.notes || ''
-      ]
-    );
-    
-    // Commit the transaction
-    await db.run('COMMIT');
-    transactionStarted = false;
-    
-    // Get the full transfer record with joined data
-    const newTransfer = await db.get(`
-      SELECT
-        t.id,
-        t.item_id,
-        t.quantity,
-        t.from_room_id,
-        t.to_room_id,
-        t.transferred_by_user_id,
-        t.transfer_date,
-        t.notes,
-        i.name as item_name,
-        fr.name as from_room_name,
-        tr.name as to_room_name,
-        u.name as transferred_by_name
-      FROM
-        item_transfers t
-      JOIN items i ON t.item_id = i.id
-      JOIN rooms fr ON t.from_room_id = fr.id
-      JOIN rooms tr ON t.to_room_id = tr.id
-      LEFT JOIN users u ON t.transferred_by_user_id = u.id
-      WHERE t.id = ?
-    `, result.lastID);
-    
-    // Convert dates to ISO strings for JSON serialization
-    if (newTransfer && newTransfer.transfer_date) {
-      newTransfer.transfer_date = new Date(newTransfer.transfer_date).toISOString();
-    }
-    
-    return NextResponse.json(newTransfer || { id: result.lastID, success: true }, { status: 201 });
   } catch (error) {
     console.error('Error creating transfer:', error);
-    
-    // Only try to rollback if we have an active transaction
-    if (db && transactionStarted) {
-      try {
-        await db.run('ROLLBACK');
-      } catch (rollbackError) {
-        console.error('Error during rollback:', rollbackError);
-      }
-    }
-    
-    // Ensure we're only returning serializable data
-    const errorMessage = error.message || 'Unknown error';
-    console.error('Full error object:', Object.keys(error));
-    
     return NextResponse.json(
-      { message: 'Failed to transfer items', error: errorMessage },
+      { message: 'Failed to create transfer', error: error.message },
       { status: 500 }
     );
   }

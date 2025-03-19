@@ -10,8 +10,7 @@ export default function Dashboard() {
     schools: 0,
     rooms: 0,
     items: 0,
-    users: 0,
-    transfers: 0
+    users: 0
   });
 
   // Fetch dashboard stats
@@ -35,16 +34,11 @@ export default function Dashboard() {
         const usersRes = await fetch('/api/users');
         const usersData = await usersRes.json();
         
-        // Get count of transfers
-        const transfersRes = await fetch('/api/transfers');
-        const transfersData = await transfersRes.json();
-        
         setStats({
           schools: schoolsData.length,
           rooms: roomsData.length,
           items: itemsData.length,
-          users: usersData.length,
-          transfers: transfersData.length
+          users: usersData.length
         });
       } catch (error) {
         console.error('Error fetching dashboard stats:', error);
@@ -101,7 +95,7 @@ export default function Dashboard() {
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 sm:px-0">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">System Overview</h2>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             <StatCard 
               title="Schools" 
               value={stats.schools} 
@@ -149,36 +143,28 @@ export default function Dashboard() {
                 </svg>
               }
             />
-            
-            <StatCard 
-              title="Transfers" 
-              value={stats.transfers} 
-              href="/transfers" 
-              color="red"
-              icon={
-                <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                </svg>
-              }
-            />
           </div>
         </div>
 
         <div className="mt-8 px-4 sm:px-0">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Recent Transfers</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Navigation</h2>
           <div className="bg-white shadow overflow-hidden sm:rounded-md">
             <ul className="divide-y divide-gray-200">
-              {stats.transfers > 0 ? (
-                <li className="px-6 py-4">
-                  <Link href="/transfers" className="text-blue-600 hover:text-blue-800">
-                    View all {stats.transfers} transfers →
-                  </Link>
-                </li>
-              ) : (
-                <li className="px-6 py-4 text-gray-500">
-                  No transfers recorded yet
-                </li>
-              )}
+              <li className="px-6 py-4">
+                <Link href="/items" className="text-blue-600 hover:text-blue-800">
+                  View all {stats.items} inventory items →
+                </Link>
+              </li>
+              <li className="px-6 py-4">
+                <Link href="/rooms" className="text-blue-600 hover:text-blue-800">
+                  View all {stats.rooms} rooms →
+                </Link>
+              </li>
+              <li className="px-6 py-4">
+                <Link href="/schools" className="text-blue-600 hover:text-blue-800">
+                  View all {stats.schools} schools →
+                </Link>
+              </li>
             </ul>
           </div>
         </div>

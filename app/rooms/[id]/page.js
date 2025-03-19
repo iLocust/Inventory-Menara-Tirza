@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import TransferHistory from '../../../components/TransferHistory';
 import Breadcrumb from '../../../components/Breadcrumb';
 
 export default function RoomDetail() {
@@ -13,10 +12,9 @@ export default function RoomDetail() {
   const [room, setRoom] = useState(null);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showTransferHistory, setShowTransferHistory] = useState(false);
 
-  useEffect(() => {
-    const fetchRoomData = async () => {
+  // Function to fetch room data that can be called to refresh
+  const fetchRoomData = async () => {
       setLoading(true);
       try {
         // Fetch room details
@@ -37,10 +35,30 @@ export default function RoomDetail() {
         setLoading(false);
       }
     };
-    
+  
+  // Call fetchRoomData when roomId changes
+  useEffect(() => {
     if (roomId) {
       fetchRoomData();
     }
+  }, [roomId]);
+  
+  // Refresh data when returning to the page (via window focus event)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && roomId) {
+        // Refresh the room data
+        fetchRoomData();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
   }, [roomId]);
 
   // Get status badge color
@@ -213,11 +231,6 @@ export default function RoomDetail() {
                             <div className="text-sm text-gray-900">{item.condition}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <Link href={`/transfers?item_id=${item.id}`}>
-                              <button className="text-green-600 hover:text-green-900 mr-4">
-                                Transfer
-                              </button>
-                            </Link>
                             <Link href={`/items?editItem=${item.id}`}>
                               <button className="text-blue-600 hover:text-blue-900 mr-4">
                                 Edit
@@ -231,24 +244,6 @@ export default function RoomDetail() {
                 </div>
               )}
             </div>
-          </div>
-
-          {/* Transfer History Toggle */}
-          <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-            <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">Transfer History</h3>
-              <button 
-                className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded"
-                onClick={() => setShowTransferHistory(!showTransferHistory)}
-              >
-                {showTransferHistory ? 'Hide History' : 'Show History'}
-              </button>
-            </div>
-            {showTransferHistory && (
-              <div className="border-t border-gray-200 p-4">
-                <TransferHistory roomId={roomId} />
-              </div>
-            )}
           </div>
         </div>
       </div>
