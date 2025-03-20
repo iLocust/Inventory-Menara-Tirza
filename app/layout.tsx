@@ -1,6 +1,8 @@
 import React from 'react';
 import './globals.css';
 import { Inter } from 'next/font/google';
+import Navbar from '../components/Navbar';
+import Sidebar from '../components/Sidebar';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -17,13 +19,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <div className="min-h-screen bg-gray-100">
-          <header className="bg-blue-600 text-white p-4 shadow-md">
-            <div className="container mx-auto">
-              <h1 className="text-2xl font-bold">School Inventory System</h1>
-            </div>
-          </header>
-          <main className="container mx-auto py-8 px-4">{children}</main>
+        <div className="min-h-screen bg-gray-50 flex">
+          <Sidebar />
+          <div className="flex-1 ml-16 md:ml-16 xl:ml-64 transition-all duration-300">
+            <Navbar />
+            <main className="py-6 px-4 sm:px-6 lg:px-8">{children}</main>
+          </div>
         </div>
       </body>
     </html>
