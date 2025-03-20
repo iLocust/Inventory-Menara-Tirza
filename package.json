@@ -10,9 +10,11 @@
     "lint": "next lint",
     "reset-db": "node scripts/reset-db.js",
     "seed": "node scripts/seed.js",
-    "setup": "npm run reset-db && npm run seed"
+    "setup": "npm run reset-db && npm run seed",
+    "set-passwords": "node scripts/set-user-passwords.js"
   },
   "dependencies": {
+    "cookie": "^0.6.0",
     "next": "^14.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
