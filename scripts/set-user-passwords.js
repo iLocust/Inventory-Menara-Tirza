@@ -31,30 +31,27 @@ async function setUserPasswords() {
     }
     
     // Get all users
-    const users = await db.all('SELECT id, email, role FROM users');
+    const users = await db.all('SELECT id, name, no_induk, phone, role FROM users');
     console.log(`Found ${users.length} users in the database`);
     
-    // Set a default password for all users based on their role
-    // In a real app, you would send password reset emails instead
+    // Set a default password for all users based on their no_induk
+    // In our system, the password is the same as the no_induk
     for (const user of users) {
-      // Use a default password based on role - in production you'd use random passwords or reset links
-      const defaultPassword = `password123_${user.role}`;
-      const { hash, salt } = hashPassword(defaultPassword);
+      // Use no_induk as password
+      const userPassword = user.no_induk || `default_${user.id}`;
+      const { hash, salt } = hashPassword(userPassword);
       
       await db.run(
         'UPDATE users SET password_hash = ?, password_salt = ? WHERE id = ?',
         [hash, salt, user.id]
       );
       
-      console.log(`Set password for user ID ${user.id} (${user.email})`);
+      console.log(`Set password for user ID ${user.id} (${user.name}): ${userPassword}`);
     }
     
-    console.log('\nDefault passwords set for all users:');
-    console.log('- Admin users: password123_admin');
-    console.log('- Kepala Sekolah users: password123_kepala_sekolah');
-    console.log('- Guru users: password123_guru');
-    console.log('- Staff users: password123_staff');
-    console.log('- Murid users: password123_murid');
+    console.log('\nPasswords set for all users:');
+    console.log('Each user password is set to their respective no_induk (NIK/NIP/NIS).');
+    console.log('For example, user TUTUT RATNASARI WAHYU W. has password: 0405028');
     
     console.log('\nDone setting passwords');
   } catch (error) {

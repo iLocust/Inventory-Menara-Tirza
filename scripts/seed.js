@@ -50,103 +50,117 @@ async function seed() {
     const users = [
       // Admin/Head Office
       { 
-        name: 'Budi Santoso', 
-        email: 'budi.santoso@depdiknas.go.id', 
-        phone: '0812-1234-5678', 
+        name: 'Achieles Zakarias', 
+        no_induk: '0001', 
+        school_id: null, 
+        phone: '081212345678', 
         role: 'admin' 
       },
       { 
-        name: 'Siti Aminah', 
-        email: 'siti.aminah@depdiknas.go.id', 
-        phone: '0813-2345-6789', 
+        name: 'Dimas Alexandra', 
+        no_induk: '0002', 
+        school_id: null, 
+        phone: '081356464187', 
         role: 'admin' 
       },
       
-      // Kepala Sekolah
+      // Kepala Sekolah - One for each school
       { 
-        name: 'Dr. Ahmad Wijaya', 
-        email: 'ahmad.wijaya@sman1jakarta.sch.id', 
-        phone: '0815-7890-1234', 
+        name: 'Tutut Ratnasari Wahyu W', 
+        no_induk: '1001', 
+        school_id: 1, 
+        phone: '081578901234', 
         role: 'kepala_sekolah' 
       },
       { 
         name: 'Dra. Rina Kartika', 
-        email: 'rina.kartika@smpn2bandung.sch.id', 
-        phone: '0819-8765-4321', 
+        no_induk: '1002', 
+        school_id: 2, 
+        phone: '081987654321', 
         role: 'kepala_sekolah' 
       },
       { 
         name: 'M.Pd. Joko Widodo', 
-        email: 'joko.widodo@sdn3sby.sch.id', 
-        phone: '0818-5678-9012', 
+        no_induk: '1003', 
+        school_id: 3, 
+        phone: '081856789012', 
         role: 'kepala_sekolah' 
       },
       
       // Guru
       { 
-        name: 'Dewi Anggraini', 
-        email: 'dewi.anggraini@sman1jakarta.sch.id', 
-        phone: '0857-1122-3344', 
+        name: 'TUTUT RATNASARI WAHYU W.', 
+        no_induk: '0405028', 
+        school_id: 1, 
+        phone: '085691638082', 
         role: 'guru' 
       },
       { 
         name: 'Hadi Supriyanto', 
-        email: 'hadi.supriyanto@smpn2bandung.sch.id', 
-        phone: '0856-3344-5566', 
+        no_induk: '2002', 
+        school_id: 2, 
+        phone: '085633445566', 
         role: 'guru' 
       },
       { 
         name: 'Rina Wati', 
-        email: 'rina.wati@sdn3sby.sch.id', 
-        phone: '0821-5566-7788', 
+        no_induk: '2003', 
+        school_id: 3, 
+        phone: '082155667788', 
         role: 'guru' 
       },
       
       // Staff
       { 
         name: 'Agus Darmawan', 
-        email: 'agus.darmawan@sman1jakarta.sch.id', 
-        phone: '0811-9988-7766', 
+        no_induk: '3001', 
+        school_id: 1, 
+        phone: '081199887766', 
         role: 'staff' 
       },
       { 
         name: 'Tuti Setiawati', 
-        email: 'tuti.setiawati@smpn2bandung.sch.id', 
-        phone: '0822-1234-9876', 
+        no_induk: '3002', 
+        school_id: 2, 
+        phone: '082212349876', 
         role: 'staff' 
       },
       { 
         name: 'Bambang Tri', 
-        email: 'bambang.tri@sdn3sby.sch.id', 
-        phone: '0833-6655-4433', 
+        no_induk: '3003', 
+        school_id: 3, 
+        phone: '083366554433', 
         role: 'staff' 
       },
       
       // Murid
       { 
         name: 'Rizky Pratama', 
-        email: 'rizky.pratama@siswa.sman1jakarta.sch.id', 
-        phone: '0878-8877-6655', 
+        no_induk: '4001', 
+        school_id: 1, 
+        phone: '087888776655', 
         role: 'murid' 
       },
       { 
         name: 'Dian Safitri', 
-        email: 'dian.safitri@siswa.smpn2bandung.sch.id', 
-        phone: '0877-6655-4433', 
+        no_induk: '4002', 
+        school_id: 2, 
+        phone: '087766554433', 
         role: 'murid' 
       },
       { 
         name: 'Wahyu Nugroho', 
-        email: 'wahyu.nugroho@siswa.sdn3sby.sch.id', 
-        phone: '0855-4433-2211', 
+        no_induk: '4003', 
+        school_id: 3, 
+        phone: '085544332211', 
         role: 'murid' 
       }
     ];
     
     for (const user of users) {
       await db.run(
-        'INSERT INTO users (name, email, phone, role) VALUES (?, ?, ?, ?)',
-        [user.name, user.email, user.phone, user.role]
+        'INSERT INTO users (name, no_induk, school_id, phone, role) VALUES (?, ?, ?, ?, ?)',
+        [user.name, user.no_induk, user.school_id, user.phone, user.role]
       );
     }
     
@@ -158,31 +172,25 @@ async function seed() {
     
     // Get user IDs by role for room assignment
     const adminUsers = await db.all("SELECT id FROM users WHERE role = 'admin'");
-    const kepalaSekolahUsers = await db.all("SELECT id, email FROM users WHERE role = 'kepala_sekolah'");
-    const guruUsers = await db.all("SELECT id, email FROM users WHERE role = 'guru'");
-    const staffUsers = await db.all("SELECT id FROM users WHERE role = 'staff'");
+    const kepalaSekolahUsers = await db.all("SELECT id, school_id FROM users WHERE role = 'kepala_sekolah'");
+    const guruUsers = await db.all("SELECT id, school_id FROM users WHERE role = 'guru'");
+    const staffUsers = await db.all("SELECT id, school_id FROM users WHERE role = 'staff'");
     
     // Function to get appropriate kepala sekolah for a school
-    const getKepalaSekolahForSchool = (schoolName) => {
-      // Extract simple code from school name (e.g., "SMA Negeri 1 Jakarta" -> "jakarta")
-      const schoolCode = schoolName.toLowerCase().split(' ').pop();
-      const kepala = kepalaSekolahUsers.find(u => u.email && u.email.includes(schoolCode));
+    const getKepalaSekolahForSchool = (schoolId) => {
+      const kepala = kepalaSekolahUsers.find(u => u.school_id === schoolId);
       return kepala ? kepala.id : kepalaSekolahUsers[0].id;
     };
     
     // Function to get appropriate guru for a school
-    const getGuruForSchool = (schoolName) => {
-      // Extract simple code from school name (e.g., "SMA Negeri 1 Jakarta" -> "jakarta")
-      const schoolCode = schoolName.toLowerCase().split(' ').pop();
-      const guru = guruUsers.find(u => u.email && u.email.includes(schoolCode));
+    const getGuruForSchool = (schoolId) => {
+      const guru = guruUsers.find(u => u.school_id === schoolId);
       return guru ? guru.id : guruUsers[0].id;
     };
     
     // Function to get appropriate staff for a school
-    const getStaffForSchool = (schoolName) => {
-      // Extract simple code from school name (e.g., "SMA Negeri 1 Jakarta" -> "jakarta")
-      const schoolCode = schoolName.toLowerCase().split(' ').pop();
-      const staff = staffUsers.find(u => u.email && u.email.includes(schoolCode));
+    const getStaffForSchool = (schoolId) => {
+      const staff = staffUsers.find(u => u.school_id === schoolId);
       return staff ? staff.id : staffUsers[0].id;
     };
     
@@ -193,43 +201,43 @@ async function seed() {
       for (let i = 1; i <= 3; i++) {
         await db.run(
           'INSERT INTO rooms (name, school_id, status_id, type_id, responsible_user_id, floor, building) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [`Kelas ${i}A`, school.id, 1, 1, getGuruForSchool(school.name), '1', 'Gedung Utama']
+          [`Kelas ${i}A`, school.id, 1, 1, getGuruForSchool(school.id), '1', 'Gedung Utama']
         );
         
         await db.run(
           'INSERT INTO rooms (name, school_id, status_id, type_id, responsible_user_id, floor, building) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [`Kelas ${i}B`, school.id, 1, 1, getGuruForSchool(school.name), '1', 'Gedung Utama']
+          [`Kelas ${i}B`, school.id, 1, 1, getGuruForSchool(school.id), '1', 'Gedung Utama']
         );
       }
       
       // Add laboratorium
       await db.run(
         'INSERT INTO rooms (name, school_id, status_id, type_id, responsible_user_id, floor, building) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        ['Laboratorium IPA', school.id, 1, 2, getGuruForSchool(school.name), '2', 'Gedung Utama']
+        ['Laboratorium IPA', school.id, 1, 2, getGuruForSchool(school.id), '2', 'Gedung Utama']
       );
       
       // Add perpustakaan
       await db.run(
         'INSERT INTO rooms (name, school_id, status_id, type_id, responsible_user_id, floor, building) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        ['Perpustakaan', school.id, 1, 3, getStaffForSchool(school.name), '1', 'Gedung Timur']
+        ['Perpustakaan', school.id, 1, 3, getStaffForSchool(school.id), '1', 'Gedung Timur']
       );
       
       // Add ruang guru
       await db.run(
         'INSERT INTO rooms (name, school_id, status_id, type_id, responsible_user_id, floor, building) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        ['Ruang Guru', school.id, 1, 4, getKepalaSekolahForSchool(school.name), '1', 'Gedung Utama']
+        ['Ruang Guru', school.id, 1, 4, getKepalaSekolahForSchool(school.id), '1', 'Gedung Utama']
       );
       
       // Add ruang kepala sekolah
       await db.run(
         'INSERT INTO rooms (name, school_id, status_id, type_id, responsible_user_id, floor, building) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        ['Ruang Kepala Sekolah', school.id, 1, 4, getKepalaSekolahForSchool(school.name), '1', 'Gedung Utama']
+        ['Ruang Kepala Sekolah', school.id, 1, 4, getKepalaSekolahForSchool(school.id), '1', 'Gedung Utama']
       );
       
       // Add gudang
       await db.run(
         'INSERT INTO rooms (name, school_id, status_id, type_id, responsible_user_id, floor, building) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        ['Gudang', school.id, 1, 6, getStaffForSchool(school.name), 'B', 'Gedung Utama']
+        ['Gudang', school.id, 1, 6, getStaffForSchool(school.id), 'B', 'Gedung Utama']
       );
     }
     

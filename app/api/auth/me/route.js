@@ -18,7 +18,9 @@ export async function GET() {
       user: {
         id: user.id,
         name: user.name,
-        email: user.email,
+        no_induk: user.no_induk,
+        school_id: user.school_id,
+        phone: user.phone,
         role: user.role
       }
     });

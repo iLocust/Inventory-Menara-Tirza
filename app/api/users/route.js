@@ -26,33 +26,41 @@ export async function POST(request) {
     const body = await request.json();
     
     // Validate required fields
-    if (!body.name) {
+    if (!body.name || !body.no_induk || !body.phone) {
       return NextResponse.json(
-        { message: 'User name is required' },
+        { message: 'Name, No Induk, and Phone are required' },
         { status: 400 }
       );
     }
 
     const db = await openDb();
     
-    // Check for existing email if provided
-    if (body.email) {
-      const existingUser = await db.get('SELECT id FROM users WHERE email = ?', body.email);
-      if (existingUser) {
-        return NextResponse.json(
-          { message: 'A user with this email already exists' },
-          { status: 400 }
-        );
-      }
+    // Check for existing no_induk
+    const existingUserByNoInduk = await db.get('SELECT id FROM users WHERE no_induk = ?', body.no_induk);
+    if (existingUserByNoInduk) {
+      return NextResponse.json(
+        { message: 'A user with this No Induk already exists' },
+        { status: 400 }
+      );
+    }
+    
+    // Check for existing phone
+    const existingUserByPhone = await db.get('SELECT id FROM users WHERE phone = ?', body.phone);
+    if (existingUserByPhone) {
+      return NextResponse.json(
+        { message: 'A user with this phone number already exists' },
+        { status: 400 }
+      );
     }
     
     const result = await db.run(
-      `INSERT INTO users (name, email, phone, role)
-       VALUES (?, ?, ?, ?)`,
+      `INSERT INTO users (name, no_induk, school_id, phone, role)
+       VALUES (?, ?, ?, ?, ?)`,
       [
         body.name,
-        body.email || null,
-        body.phone || null,
+        body.no_induk,
+        body.school_id || null,
+        body.phone,
         body.role || 'guru'
       ]
     );

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Breadcrumb from '../../components/Breadcrumb';
 
@@ -9,29 +9,84 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editUser, setEditUser] = useState(null);
+  const [schools, setSchools] = useState([]);
+  const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'ascending' });
   const [formData, setFormData] = useState({
     name: '',
-    email: '',
+    no_induk: '',
+    school_id: '',
     phone: '',
     role: 'guru'
   });
 
-  // Fetch users
+  // Sort data function
+  const sortedUsers = useMemo(() => {
+    let sortableUsers = [...users];
+    if (sortConfig.key) {
+      sortableUsers.sort((a, b) => {
+        // Handle special case for school name which requires lookup
+        if (sortConfig.key === 'school') {
+          const aSchool = schools.find(s => s.id === a.school_id)?.name || '';
+          const bSchool = schools.find(s => s.id === b.school_id)?.name || '';
+          if (sortConfig.direction === 'ascending') {
+            return aSchool.localeCompare(bSchool);
+          } else {
+            return bSchool.localeCompare(aSchool);
+          }
+        }
+        
+        // Normal sorting for other fields
+        if (a[sortConfig.key] < b[sortConfig.key]) {
+          return sortConfig.direction === 'ascending' ? -1 : 1;
+        }
+        if (a[sortConfig.key] > b[sortConfig.key]) {
+          return sortConfig.direction === 'ascending' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    return sortableUsers;
+  }, [users, sortConfig, schools]);
+
+  // Request sort function
+  const requestSort = (key) => {
+    let direction = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  // Get sort direction for a column
+  const getSortDirection = (key) => {
+    if (sortConfig.key === key) {
+      return sortConfig.direction === 'ascending' ? '↑' : '↓';
+    }
+    return '';
+  };
+
+  // Fetch users and schools
   useEffect(() => {
-    const fetchUsers = async () => {
+    const fetchData = async () => {
       setLoading(true);
       try {
-        const response = await fetch('/api/users');
-        const data = await response.json();
-        setUsers(data);
+        // Fetch users
+        const usersResponse = await fetch('/api/users');
+        const usersData = await usersResponse.json();
+        setUsers(usersData);
+        
+        // Fetch schools for dropdown
+        const schoolsResponse = await fetch('/api/schools');
+        const schoolsData = await schoolsResponse.json();
+        setSchools(schoolsData);
       } catch (error) {
-        console.error('Error fetching users:', error);
+        console.error('Error fetching data:', error);
       } finally {
         setLoading(false);
       }
     };
     
-    fetchUsers();
+    fetchData();
   }, []);
 
   // Handle form change
@@ -75,9 +130,10 @@ export default function UsersPage() {
       // Reset form state
       setFormData({
         name: '',
-        email: '',
+        no_induk: '',
+        school_id: '',
         phone: '',
-        role: 'teacher'
+        role: 'guru'
       });
       setEditUser(null);
       setShowForm(false);
@@ -121,13 +177,14 @@ export default function UsersPage() {
   
   // Edit user
   const handleEdit = (user) => {
-    setEditUser(user);
-    setFormData({
-      name: user.name,
-      email: user.email || '',
-      phone: user.phone || '',
-      role: user.role || 'teacher'
-    });
+  setEditUser(user);
+  setFormData({
+  name: user.name,
+  no_induk: user.no_induk || '',
+  school_id: user.school_id || '',
+  phone: user.phone || '',
+    role: user.role || 'guru'
+  });
     setShowForm(true);
   };
 
@@ -162,9 +219,10 @@ export default function UsersPage() {
                 setEditUser(null);
                 setFormData({
                   name: '',
-                  email: '',
+                  no_induk: '',
+                  school_id: '',
                   phone: '',
-                  role: 'teacher'
+                  role: 'guru'
                 });
                 setShowForm(!showForm);
               }}
@@ -196,22 +254,23 @@ export default function UsersPage() {
                   </div>
                   
                   <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                      Email
+                    <label htmlFor="no_induk" className="block text-sm font-medium text-gray-700">
+                      No Induk*
                     </label>
                     <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      value={formData.email}
+                      type="text"
+                      id="no_induk"
+                      name="no_induk"
+                      value={formData.no_induk}
                       onChange={handleChange}
+                      required
                       className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     />
                   </div>
                   
                   <div>
                     <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-                      Phone
+                      No Telepon*
                     </label>
                     <input
                       type="text"
@@ -219,21 +278,42 @@ export default function UsersPage() {
                       name="phone"
                       value={formData.phone}
                       onChange={handleChange}
+                      required
                       className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     />
                   </div>
                   
                   <div>
+                    <label htmlFor="school_id" className="block text-sm font-medium text-gray-700">
+                      Sekolah
+                    </label>
+                    <select
+                      id="school_id"
+                      name="school_id"
+                      value={formData.school_id}
+                      onChange={handleChange}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    >
+                      <option value="">-- Pilih Sekolah --</option>
+                      {schools.map(school => (
+                        <option key={school.id} value={school.id}>{school.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div>
                     <label htmlFor="role" className="block text-sm font-medium text-gray-700">
-                      Role
+                      Role*
                     </label>
                     <select
                       id="role"
                       name="role"
                       value={formData.role}
                       onChange={handleChange}
+                      required
                       className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     >
+                      <option value="">-- Pilih Role --</option>
                       <option value="admin">Admin/Head Office</option>
                       <option value="kepala_sekolah">Kepala Sekolah</option>
                       <option value="guru">Guru</option>
@@ -273,17 +353,20 @@ export default function UsersPage() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Name
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('name')}>
+                      Nama {getSortDirection('name')}
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Email
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('no_induk')}>
+                      No Induk {getSortDirection('no_induk')}
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Phone
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('school')}>
+                      Sekolah {getSortDirection('school')}
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Role
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('phone')}>
+                      No Telepon {getSortDirection('phone')}
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('role')}>
+                      Role {getSortDirection('role')}
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
@@ -291,13 +374,18 @@ export default function UsersPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {users.map((user) => (
+                  {sortedUsers.map((user) => (
                     <tr key={user.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">{user.name}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">{user.email || '-'}</div>
+                        <div className="text-sm text-gray-500">{user.no_induk || '-'}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-500">
+                          {schools.find(s => s.id === user.school_id)?.name || '-'}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-500">{user.phone || '-'}</div>

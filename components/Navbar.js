@@ -1,14 +1,34 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function Navbar() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [userName, setUserName] = useState('User');
   const router = useRouter();
+  const dropdownRef = useRef(null);
 
+  useEffect(() => {
+    // Handle clicks outside the dropdown
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    }
+
+    // Add event listener when dropdown is shown
+    if (showDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    
+    // Cleanup event listener
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showDropdown]);
+  
   useEffect(() => {
     // Fetch current user information
     const fetchUserInfo = async () => {
@@ -56,7 +76,7 @@ export default function Navbar() {
           
           <div className="flex items-center space-x-4">
             {/* User profile dropdown */}
-            <div className="relative">
+            <div className="relative" ref={dropdownRef}>
               <button 
                 className="flex items-center focus:outline-none"
                 onClick={() => setShowDropdown(!showDropdown)}

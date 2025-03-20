@@ -4,18 +4,18 @@ import { authenticateUser, createSession } from '../../../../lib/auth.js';
 
 export async function POST(request) {
   try {
-    const { email, password } = await request.json();
+    const { phone, password } = await request.json();
     
     // Validate input
-    if (!email || !password) {
+    if (!phone || !password) {
       return NextResponse.json(
-        { success: false, error: 'Email and password are required' },
+        { success: false, error: 'Phone number and password are required' },
         { status: 400 }
       );
     }
     
     // Authenticate user
-    const authResult = await authenticateUser(email, password);
+    const authResult = await authenticateUser(phone, password);
     
     if (!authResult.success) {
       return NextResponse.json(

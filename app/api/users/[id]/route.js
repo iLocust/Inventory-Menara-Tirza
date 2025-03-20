@@ -33,9 +33,9 @@ export async function PUT(request, { params }) {
     const body = await request.json();
     
     // Validate required fields
-    if (!body.name) {
+    if (!body.name || !body.no_induk || !body.phone) {
       return NextResponse.json(
-        { message: 'User name is required' },
+        { message: 'Name, No Induk, and Phone are required' },
         { status: 400 }
       );
     }
@@ -43,7 +43,7 @@ export async function PUT(request, { params }) {
     const db = await openDb();
     
     // Check if user exists
-    const existingUser = await db.get('SELECT id FROM users WHERE id = ?', userId);
+    const existingUser = await db.get('SELECT id, no_induk, phone FROM users WHERE id = ?', userId);
     if (!existingUser) {
       return NextResponse.json(
         { message: 'User not found' },
@@ -51,16 +51,31 @@ export async function PUT(request, { params }) {
       );
     }
     
-    // Check for existing email (if changed)
-    if (body.email) {
-      const emailCheck = await db.get(
-        'SELECT id FROM users WHERE email = ? AND id != ?', 
-        [body.email, userId]
+    // Check for existing no_induk (if changed)
+    if (body.no_induk !== existingUser.no_induk) {
+      const noIndukCheck = await db.get(
+        'SELECT id FROM users WHERE no_induk = ? AND id != ?', 
+        [body.no_induk, userId]
       );
       
-      if (emailCheck) {
+      if (noIndukCheck) {
         return NextResponse.json(
-          { message: 'Email is already in use by another user' },
+          { message: 'No Induk is already in use by another user' },
+          { status: 400 }
+        );
+      }
+    }
+    
+    // Check for existing phone (if changed)
+    if (body.phone !== existingUser.phone) {
+      const phoneCheck = await db.get(
+        'SELECT id FROM users WHERE phone = ? AND id != ?', 
+        [body.phone, userId]
+      );
+      
+      if (phoneCheck) {
+        return NextResponse.json(
+          { message: 'Phone number is already in use by another user' },
           { status: 400 }
         );
       }
@@ -68,12 +83,13 @@ export async function PUT(request, { params }) {
     
     await db.run(
       `UPDATE users 
-       SET name = ?, email = ?, phone = ?, role = ?, updatedAt = CURRENT_TIMESTAMP
+       SET name = ?, no_induk = ?, school_id = ?, phone = ?, role = ?, updatedAt = CURRENT_TIMESTAMP
        WHERE id = ?`,
       [
         body.name,
-        body.email || null,
-        body.phone || null,
+        body.no_induk,
+        body.school_id || null,
+        body.phone,
         body.role || 'guru',
         userId
       ]
