@@ -21,7 +21,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <div className="min-h-screen bg-gray-50 flex">
           <Sidebar />
-          <div className="flex-1 ml-16 md:ml-16 xl:ml-64 transition-all duration-300">
+          <div className="flex-1 ml-16 transition-all duration-300">
             <Navbar />
             <main className="py-6 px-4 sm:px-6 lg:px-8">{children}</main>
           </div>

@@ -79,7 +79,7 @@ export default function Sidebar() {
     <>
       {/* Mobile Toggle Button */}
       <button
-        className="fixed top-4 left-4 z-50 p-2 rounded-md bg-blue-600 text-white focus:outline-none"
+        className="fixed top-4 left-4 z-50 p-2 rounded-md bg-blue-600 text-white focus:outline-none md:hidden"
         onClick={toggleSidebar}
       >
         {isCollapsed ? (
@@ -95,14 +95,14 @@ export default function Sidebar() {
 
       {/* Sidebar */}
       <div
-        className={`fixed left-0 top-0 h-full bg-gray-800 text-white transition-all duration-300 ease-in-out z-40 ${
-          isCollapsed ? 'w-16 md:translate-x-0' : 'w-64 translate-x-0'
+        className={`fixed left-0 top-0 h-full bg-gray-900 text-white transition-all duration-300 ease-in-out z-40 ${
+          isCollapsed ? 'w-16' : 'w-64'
         }`}
       >
-        <div className="flex items-center justify-between p-4 border-b border-gray-700">
-          <h1 className={`font-bold text-xl ${isCollapsed ? 'md:hidden' : ''}`}>Inventory</h1>
+        <div className="flex items-center justify-between p-4 border-b border-gray-800">
+          {!isCollapsed && <h1 className="font-bold text-xl">Inventory</h1>}
           <button
-            className="hidden md:block rounded-md p-1 hover:bg-gray-700 focus:outline-none"
+            className="rounded-md p-1 hover:bg-gray-800 focus:outline-none ml-auto"
             onClick={toggleSidebar}
           >
             {isCollapsed ? (
@@ -124,11 +124,11 @@ export default function Sidebar() {
                 <Link
                   href={item.path}
                   className={`flex items-center py-3 px-4 ${
-                    pathname === item.path ? 'bg-blue-700' : 'hover:bg-gray-700'
+                    pathname === item.path ? 'bg-blue-700' : 'hover:bg-gray-800'
                   } transition-colors duration-200`}
                 >
-                  <span className="text-gray-300">{item.icon}</span>
-                  <span className={`ml-3 ${isCollapsed ? 'hidden md:hidden' : 'block'}`}>{item.title}</span>
+                  <span className="text-white">{item.icon}</span>
+                  {!isCollapsed && <span className="ml-3">{item.title}</span>}
                 </Link>
               </li>
             ))}
