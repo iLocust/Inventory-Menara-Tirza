@@ -1,18 +1,37 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
+  const sidebarRef = useRef(null);
   
-  // Ensure sidebar is visible on desktop
+  // Add click outside detection
   useEffect(() => {
-    if (window.innerWidth >= 768) {
-      setIsCollapsed(false);
+    function handleClickOutside(event) {
+      if (sidebarRef.current && 
+          !sidebarRef.current.contains(event.target) && 
+          !event.target.closest('button[data-sidebar-toggle]')) {
+        // If click is outside sidebar and not on the toggle button, collapse the sidebar
+        setIsCollapsed(true);
+      }
     }
+
+    // Add event listener
+    document.addEventListener('mousedown', handleClickOutside);
+    
+    // Cleanup event listener
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Set sidebar to collapsed by default on all devices
+  useEffect(() => {
+    setIsCollapsed(true);
   }, []);
 
   const menuItems = [
@@ -79,7 +98,8 @@ export default function Sidebar() {
     <>
       {/* Mobile Toggle Button */}
       <button
-        className="fixed top-4 left-4 z-50 p-2 rounded-md bg-blue-600 text-white focus:outline-none md:hidden"
+        data-sidebar-toggle
+        className="fixed top-4 left-4 z-50 p-2 rounded-md bg-blue-600 text-white focus:outline-none"
         onClick={toggleSidebar}
       >
         {isCollapsed ? (
@@ -95,8 +115,9 @@ export default function Sidebar() {
 
       {/* Sidebar */}
       <div
+        ref={sidebarRef}
         className={`fixed left-0 top-0 h-full bg-gray-900 text-white transition-all duration-300 ease-in-out z-40 ${
-          isCollapsed ? 'w-16' : 'w-64'
+          isCollapsed ? '-translate-x-full md:translate-x-0 md:w-16' : 'translate-x-0 w-64'
         }`}
       >
         <div className="flex items-center justify-between p-4 border-b border-gray-800">
