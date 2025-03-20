@@ -157,6 +157,11 @@ export default function SchoolsPage() {
                             </p>
                           )}
                         </div>
+                        {school.kepala_sekolah_name && (
+                          <p className="mt-2 text-sm text-gray-500">
+                            <span className="font-medium">Kepala Sekolah:</span> {school.kepala_sekolah_name}
+                          </p>
+                        )}
                       </div>
                       <div className="flex space-x-2">
                         <Link href={`/schools/${school.id}/rooms`}>

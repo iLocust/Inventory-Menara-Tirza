@@ -4,7 +4,12 @@ import openDb from '../../../../lib/db';
 // Helper function to get a school by ID
 async function getSchoolById(id) {
   const db = await openDb();
-  return db.get('SELECT * FROM schools WHERE id = ?', id);
+  return db.get(`
+    SELECT s.*, u.name as kepala_sekolah_name
+    FROM schools s
+    LEFT JOIN users u ON s.kepala_sekolah_id = u.id
+    WHERE s.id = ?
+  `, id);
 }
 
 // GET single school
@@ -62,6 +67,7 @@ export async function PUT(request, { params }) {
         address = ?, 
         phone = ?, 
         email = ?,
+        kepala_sekolah_id = ?,
         updatedAt = CURRENT_TIMESTAMP
       WHERE id = ?`,
       [
@@ -69,6 +75,7 @@ export async function PUT(request, { params }) {
         body.address || '',
         body.phone || '',
         body.email || '',
+        body.kepala_sekolah_id || null,
         id
       ]
     );

@@ -2,13 +2,35 @@ import { NextResponse } from 'next/server';
 import openDb, { initializeDb } from '../../../lib/db';
 
 // GET all users
-export async function GET() {
+export async function GET(request) {
   try {
     // Initialize DB (creates tables if they don't exist)
     await initializeDb();
     
     const db = await openDb();
-    const users = await db.all('SELECT * FROM users ORDER BY name ASC');
+    
+    // Parse query parameters
+    const { searchParams } = new URL(request.url);
+    const role = searchParams.get('role');
+    
+    // Base query
+    let query = `
+      SELECT u.*, s.name as school_name 
+      FROM users u
+      LEFT JOIN schools s ON u.school_id = s.id
+    `;
+    
+    const params = [];
+    
+    // Add filter for role if provided
+    if (role) {
+      query += ' WHERE u.role = ?';
+      params.push(role);
+    }
+    
+    query += ' ORDER BY u.name ASC';
+    
+    const users = await db.all(query, params);
     
     return NextResponse.json(users);
   } catch (error) {

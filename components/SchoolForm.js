@@ -6,11 +6,34 @@ const initialFormState = {
   name: '',
   address: '',
   phone: '',
-  email: ''
+  email: '',
+  kepala_sekolah_id: ''
 };
 
 export default function SchoolForm({ initialData, onSubmit, onCancel }) {
   const [formData, setFormData] = useState(initialFormState);
+  const [kepalaSekolahOptions, setKepalaSekolahOptions] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  // Fetch Kepala Sekolah users
+  useEffect(() => {
+    const fetchKepalaSekolah = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch('/api/users?role=kepala_sekolah');
+        if (response.ok) {
+          const data = await response.json();
+          setKepalaSekolahOptions(data);
+        }
+      } catch (error) {
+        console.error('Error fetching kepala sekolah:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchKepalaSekolah();
+  }, []);
 
   // If initialData (for editing) is provided, update the form state
   useEffect(() => {
@@ -19,7 +42,8 @@ export default function SchoolForm({ initialData, onSubmit, onCancel }) {
         name: initialData.name || '',
         address: initialData.address || '',
         phone: initialData.phone || '',
-        email: initialData.email || ''
+        email: initialData.email || '',
+        kepala_sekolah_id: initialData.kepala_sekolah_id || ''
       });
     } else {
       setFormData(initialFormState);
@@ -94,6 +118,25 @@ export default function SchoolForm({ initialData, onSubmit, onCancel }) {
             onChange={handleChange}
             className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md px-3 py-2 border"
           />
+        </div>
+
+        <div>
+          <label htmlFor="kepala_sekolah_id" className="block text-sm font-medium text-gray-700">
+            Kepala Sekolah
+          </label>
+          <select
+            id="kepala_sekolah_id"
+            name="kepala_sekolah_id"
+            value={formData.kepala_sekolah_id}
+            onChange={handleChange}
+            className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md px-3 py-2 border"
+          >
+            <option value="">-- Pilih Kepala Sekolah --</option>
+            {kepalaSekolahOptions.map(ks => (
+              <option key={ks.id} value={ks.id}>{ks.name}</option>
+            ))}
+          </select>
+          {loading && <p className="text-xs text-gray-500 mt-1">Loading kepala sekolah options...</p>}
         </div>
       </div>
 

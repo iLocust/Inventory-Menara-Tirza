@@ -8,7 +8,14 @@ export async function GET() {
     await initializeDb();
     
     const db = await openDb();
-    const schools = await db.all('SELECT * FROM schools ORDER BY name ASC');
+    
+    // Get schools with kepala sekolah information
+    const schools = await db.all(`
+      SELECT s.*, u.name as kepala_sekolah_name 
+      FROM schools s
+      LEFT JOIN users u ON s.kepala_sekolah_id = u.id
+      ORDER BY s.name ASC
+    `);
     
     return NextResponse.json(schools);
   } catch (error) {
@@ -36,13 +43,14 @@ export async function POST(request) {
     const db = await openDb();
     
     const result = await db.run(
-      `INSERT INTO schools (name, address, phone, email)
-       VALUES (?, ?, ?, ?)`,
+      `INSERT INTO schools (name, address, phone, email, kepala_sekolah_id)
+       VALUES (?, ?, ?, ?, ?)`,
       [
         body.name,
         body.address || '',
         body.phone || '',
-        body.email || ''
+        body.email || '',
+        body.kepala_sekolah_id || null
       ]
     );
     
