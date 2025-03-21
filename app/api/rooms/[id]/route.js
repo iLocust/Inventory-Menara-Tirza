@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import openDb from '../../../../lib/db';
+import { canAccessRoom } from '../../../../lib/school-access';
 
 // Helper function to get a room by ID with joined data
 async function getRoomById(id) {
@@ -48,6 +49,16 @@ export async function GET(request, { params }) {
 export async function PUT(request, { params }) {
   try {
     const id = params.id;
+    
+    // Check if user has access to this room
+    const hasAccess = await canAccessRoom(id);
+    if (!hasAccess) {
+      return NextResponse.json(
+        { message: 'You do not have permission to modify this room' },
+        { status: 403 }
+      );
+    }
+    
     const body = await request.json();
     
     // Check if room exists
@@ -144,6 +155,15 @@ export async function PUT(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     const id = params.id;
+    
+    // Check if user has access to delete this room
+    const hasAccess = await canAccessRoom(id);
+    if (!hasAccess) {
+      return NextResponse.json(
+        { message: 'You do not have permission to delete this room' },
+        { status: 403 }
+      );
+    }
     
     // Check if room exists
     const room = await getRoomById(id);

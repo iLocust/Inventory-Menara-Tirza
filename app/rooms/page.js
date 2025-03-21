@@ -15,18 +15,68 @@ export default function RoomsPage() {
   const [showForm, setShowForm] = useState(false);
   const [editRoom, setEditRoom] = useState(null);
   const [selectedSchool, setSelectedSchool] = useState('');
+  const [userRole, setUserRole] = useState('');
+  const [userSchoolId, setUserSchoolId] = useState(null);
+  const [userName, setUserName] = useState('');
+
+  // Fetch user role and school
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      try {
+        const response = await fetch('/api/auth/me');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.user) {
+            setUserRole(data.user.role || '');
+            setUserSchoolId(data.user.school_id || null);
+            setUserName(data.user.name || '');
+            
+            // If user is kepala_sekolah, automatically set the school filter to their school
+            if (data.user.role === 'kepala_sekolah' && data.user.school_id) {
+              setSelectedSchool(data.user.school_id.toString());
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user role:', error);
+      }
+    };
+    
+    fetchUserInfo();
+  }, []);
+  
+  // Check if user can manage a specific room
+  const canManageRoom = (schoolId) => {
+    return userRole === 'admin' || 
+      (userRole === 'kepala_sekolah' && parseInt(userSchoolId) === schoolId);
+  };
 
   // Fetch rooms and reference data
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch rooms, filtering by school if selected
+      // Fetch rooms, filtering by school
       let roomsUrl = '/api/rooms';
-      if (selectedSchool) {
+      
+      // For Kepala Sekolah, always filter by their school regardless of UI filters
+      if (userRole === 'kepala_sekolah' && userSchoolId) {
+        roomsUrl += `?school_id=${userSchoolId}`;
+      } else if (selectedSchool) {
+        // For other roles, use the selected filter
         roomsUrl += `?school_id=${selectedSchool}`;
       }
       const roomsRes = await fetch(roomsUrl);
       const roomsData = await roomsRes.json();
+      
+      // If user is Kepala Sekolah, set their name as responsible for rooms with no assigned person
+      if (userRole === 'kepala_sekolah') {
+        roomsData.forEach(room => {
+          if (!room.responsible_user_name || room.responsible_user_name.trim() === '') {
+            room.responsible_user_name = `${userName} (Default)`;
+          }
+        });
+      }
+      
       setRooms(roomsData);
       
       // Fetch schools for filtering
@@ -58,7 +108,7 @@ export default function RoomsPage() {
   // Initial data fetch
   useEffect(() => {
     fetchData();
-  }, [selectedSchool]);
+  }, [selectedSchool, userRole, userSchoolId]);
 
   // Handle room deletion
   const handleDelete = async (id) => {
@@ -122,6 +172,13 @@ export default function RoomsPage() {
     }
   };
 
+  // Check if user can add rooms (admin or kepala_sekolah with a selected school)
+  const canAddRoom = userRole === 'admin' || 
+    (userRole === 'kepala_sekolah' && selectedSchool && parseInt(selectedSchool) === userSchoolId);
+    
+  // Hide the school filter for Kepala Sekolah users
+  const showSchoolFilter = userRole !== 'kepala_sekolah';
+
   return (
     <div>
       <Breadcrumb />
@@ -134,33 +191,37 @@ export default function RoomsPage() {
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-            <div className="w-full md:w-64">
-              <label htmlFor="school-filter" className="block text-sm font-medium text-gray-700 mb-1">
-                Filter by School
-              </label>
-              <select
-                id="school-filter"
-                value={selectedSchool}
-                onChange={(e) => setSelectedSchool(e.target.value)}
-                className="block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            {showSchoolFilter && (
+              <div className="w-full md:w-64">
+                <label htmlFor="school-filter" className="block text-sm font-medium text-gray-700 mb-1">
+                  Filter by School
+                </label>
+                <select
+                  id="school-filter"
+                  value={selectedSchool}
+                  onChange={(e) => setSelectedSchool(e.target.value)}
+                  className="block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                >
+                  <option value="">All Schools</option>
+                  {schools.map((school) => (
+                    <option key={school.id} value={school.id}>
+                      {school.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {canAddRoom && (
+              <button
+                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                onClick={() => {
+                  setEditRoom(null);
+                  setShowForm(!showForm);
+                }}
               >
-                <option value="">All Schools</option>
-                {schools.map((school) => (
-                  <option key={school.id} value={school.id}>
-                    {school.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button
-              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-              onClick={() => {
-                setEditRoom(null);
-                setShowForm(!showForm);
-              }}
-            >
-              {showForm ? 'Cancel' : 'Add New Room'}
-            </button>
+                {showForm ? 'Cancel' : 'Add New Room'}
+              </button>
+            )}
           </div>
 
           {showForm && (
@@ -175,7 +236,9 @@ export default function RoomsPage() {
                   setEditRoom(null);
                   setShowForm(false);
                 }}
-                schools={schools}
+                schools={userRole === 'kepala_sekolah' 
+                  ? schools.filter(school => school.id === parseInt(userSchoolId))
+                  : schools}
                 users={users}
                 roomTypes={roomTypes}
                 roomStatuses={roomStatuses}
@@ -257,18 +320,22 @@ export default function RoomsPage() {
                               Items
                             </button>
                           </Link>
-                          <button
-                            onClick={() => handleEdit(room)}
-                            className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(room.id)}
-                            className="px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200"
-                          >
-                            Delete
-                          </button>
+                          {canManageRoom(room.school_id) && (
+                            <>
+                              <button
+                                onClick={() => handleEdit(room)}
+                                className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDelete(room.id)}
+                                className="px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200"
+                              >
+                                Delete
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>

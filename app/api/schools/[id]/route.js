@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import openDb from '../../../../lib/db';
+import { getCurrentUser } from '../../../../lib/auth';
 
 // Helper function to get a school by ID
 async function getSchoolById(id) {
@@ -39,9 +40,11 @@ export async function GET(request, { params }) {
 export async function PUT(request, { params }) {
   try {
     const id = params.id;
-    const body = await request.json();
     
-    // Check if school exists
+    // Check user authorization
+    const user = await getCurrentUser();
+    
+    // Get the school to check if it exists
     const school = await getSchoolById(id);
     
     if (!school) {
@@ -50,6 +53,16 @@ export async function PUT(request, { params }) {
         { status: 404 }
       );
     }
+    
+    // Return unauthorized if the user is a kepala_sekolah but not assigned to this school
+    if (user && user.role === 'kepala_sekolah' && user.school_id !== school.id) {
+      return NextResponse.json(
+        { message: 'Kepala Sekolah hanya dapat mengedit sekolah yang ditugaskan kepadanya' },
+        { status: 403 }
+      );
+    }
+    
+    const body = await request.json();
     
     // Validate required fields
     if (!body.name) {
@@ -95,6 +108,17 @@ export async function PUT(request, { params }) {
 // DELETE school
 export async function DELETE(request, { params }) {
   try {
+    // Check user authorization
+    const user = await getCurrentUser();
+    
+    // Return unauthorized if the user is a kepala_sekolah
+    if (user && user.role === 'kepala_sekolah') {
+      return NextResponse.json(
+        { message: 'Kepala Sekolah tidak memiliki akses untuk menghapus sekolah' },
+        { status: 403 }
+      );
+    }
+    
     const id = params.id;
     
     // Check if school exists

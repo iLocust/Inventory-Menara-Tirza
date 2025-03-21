@@ -10,6 +10,41 @@ export default function SchoolsPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editSchool, setEditSchool] = useState(null);
+  const [userRole, setUserRole] = useState('');
+  const [userSchoolId, setUserSchoolId] = useState(null);
+  
+  // Fetch the current user's role
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      try {
+        const response = await fetch('/api/auth/me');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.user) {
+            setUserRole(data.user.role || '');
+            setUserSchoolId(data.user.school_id || null);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user role:', error);
+      }
+    };
+    
+    fetchUserRole();
+  }, []);
+  
+  // Check if user has permission to create or delete schools
+  const canManageSchools = userRole !== 'kepala_sekolah';
+  
+  // Check if user can edit a specific school
+  const canEditSchool = (schoolId) => {
+    // Admin and other roles except kepala_sekolah can edit any school
+    if (userRole !== 'kepala_sekolah') return true;
+    
+    // Kepala sekolah can only edit their own school
+    if (!userSchoolId) return false; // If not assigned to a school, can't edit any
+    return parseInt(userSchoolId) === schoolId;
+  };
 
   // Fetch schools from the API
   const fetchSchools = async () => {
@@ -95,15 +130,17 @@ export default function SchoolsPage() {
         <div className="px-4 py-6 sm:px-0">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold text-gray-800">All Schools</h2>
-            <button
-              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-              onClick={() => {
-                setEditSchool(null);
-                setShowForm(!showForm);
-              }}
-            >
-              {showForm ? 'Cancel' : 'Add New School'}
-            </button>
+            {canManageSchools && (
+              <button
+                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                onClick={() => {
+                  setEditSchool(null);
+                  setShowForm(!showForm);
+                }}
+              >
+                {showForm ? 'Cancel' : 'Add New School'}
+              </button>
+            )}
           </div>
 
           {showForm && (
@@ -169,18 +206,22 @@ export default function SchoolsPage() {
                             Rooms
                           </button>
                         </Link>
-                        <button
-                          onClick={() => handleEdit(school)}
-                          className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDelete(school.id)}
-                          className="px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200"
-                        >
-                          Delete
-                        </button>
+                        {(canEditSchool(school.id)) && (
+                          <button
+                            onClick={() => handleEdit(school)}
+                            className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200"
+                          >
+                            Edit
+                          </button>
+                        )}
+                        {canManageSchools && (
+                          <button
+                            onClick={() => handleDelete(school.id)}
+                            className="px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200"
+                          >
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </div>
                   </li>

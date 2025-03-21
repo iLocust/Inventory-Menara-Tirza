@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import openDb, { initializeDb } from '../../../lib/db';
+import { getCurrentUser } from '../../../lib/auth';
+import { canAccessSchool } from '../../../lib/school-access';
 
 // GET all rooms with related data
 export async function GET(request) {
@@ -55,6 +57,15 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json();
+    
+    // Check if user has access to the school
+    const hasAccess = await canAccessSchool(body.school_id);
+    if (!hasAccess) {
+      return NextResponse.json(
+        { message: 'You do not have permission to create rooms for this school' },
+        { status: 403 }
+      );
+    }
     
     // Validate required fields
     if (!body.name || !body.school_id || !body.type_id) {

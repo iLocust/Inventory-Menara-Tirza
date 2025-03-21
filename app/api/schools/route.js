@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import openDb, { initializeDb } from '../../../lib/db';
+import { getCurrentUser } from '../../../lib/auth';
 
 // GET all schools
 export async function GET() {
@@ -30,6 +31,17 @@ export async function GET() {
 // POST new school
 export async function POST(request) {
   try {
+    // Check user authorization
+    const user = await getCurrentUser();
+    
+    // Return unauthorized if the user is a kepala_sekolah
+    if (user && user.role === 'kepala_sekolah') {
+      return NextResponse.json(
+        { message: 'Kepala Sekolah tidak memiliki akses untuk menambahkan sekolah baru' },
+        { status: 403 }
+      );
+    }
+    
     const body = await request.json();
     
     // Validate required fields

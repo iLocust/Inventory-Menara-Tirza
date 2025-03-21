@@ -12,6 +12,37 @@ export default function RoomDetail() {
   const [room, setRoom] = useState(null);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState('');
+  const [userSchoolId, setUserSchoolId] = useState(null);
+  const [userName, setUserName] = useState('');
+  
+  // Fetch user role and school
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      try {
+        const response = await fetch('/api/auth/me');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.user) {
+            setUserRole(data.user.role || '');
+            setUserSchoolId(data.user.school_id || null);
+            setUserName(data.user.name || '');
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user role:', error);
+      }
+    };
+    
+    fetchUserInfo();
+  }, []);
+  
+  // Function to check if user has permission to manage this room
+  const canManageRoom = () => {
+    if (!room) return false;
+    return userRole === 'admin' || 
+      (userRole === 'kepala_sekolah' && parseInt(userSchoolId) === room.school_id);
+  };
 
   // Function to fetch room data that can be called to refresh
   const fetchRoomData = async () => {
@@ -179,19 +210,23 @@ export default function RoomDetail() {
           <div className="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
             <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
               <h3 className="text-lg leading-6 font-medium text-gray-900">Items in Room</h3>
-              <Link href={`/rooms/${roomId}/items`}>
-                <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-                  Manage Items
-                </button>
-              </Link>
+              {canManageRoom() && (
+                <Link href={`/rooms/${roomId}/items`}>
+                  <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                    Manage Items
+                  </button>
+                </Link>
+              )}
             </div>
             <div className="border-t border-gray-200">
               {items.length === 0 ? (
                 <div className="px-4 py-5 text-center">
                   <p className="text-gray-500">No items found in this room.</p>
-                  <Link href={`/items?room_id=${roomId}`} className="text-blue-600 hover:text-blue-800 mt-2 inline-block">
-                    Add an item →
-                  </Link>
+                  {canManageRoom() && (
+                    <Link href={`/items?room_id=${roomId}`} className="text-blue-600 hover:text-blue-800 mt-2 inline-block">
+                      Add an item →
+                    </Link>
+                  )}
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -231,11 +266,13 @@ export default function RoomDetail() {
                             <div className="text-sm text-gray-900">{item.condition}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <Link href={`/items?editItem=${item.id}`}>
-                              <button className="text-blue-600 hover:text-blue-900 mr-4">
-                                Edit
-                              </button>
-                            </Link>
+                            {canManageRoom() && (
+                              <Link href={`/items?editItem=${item.id}`}>
+                                <button className="text-blue-600 hover:text-blue-900 mr-4">
+                                  Edit
+                                </button>
+                              </Link>
+                            )}
                           </td>
                         </tr>
                       ))}

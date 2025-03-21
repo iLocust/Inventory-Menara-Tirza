@@ -13,11 +13,44 @@ export default function ItemsPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState(null);
+  const [userRole, setUserRole] = useState('');
+  const [userSchoolId, setUserSchoolId] = useState(null);
   
   // Filters
   const [selectedSchool, setSelectedSchool] = useState('');
   const [selectedRoom, setSelectedRoom] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
+
+  // Fetch user role and school
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      try {
+        const response = await fetch('/api/auth/me');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.user) {
+            setUserRole(data.user.role || '');
+            setUserSchoolId(data.user.school_id || null);
+            
+            // If user is kepala_sekolah, automatically set the school filter to their school
+            if (data.user.role === 'kepala_sekolah' && data.user.school_id) {
+              setSelectedSchool(data.user.school_id.toString());
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user role:', error);
+      }
+    };
+    
+    fetchUserInfo();
+  }, []);
+  
+  // Check if user can manage an item based on its school
+  const canManageItem = (schoolId) => {
+    return userRole === 'admin' || 
+      (userRole === 'kepala_sekolah' && parseInt(userSchoolId) === schoolId);
+  };
 
   // Fetch items with filters
   const fetchItems = async () => {
@@ -26,10 +59,16 @@ export default function ItemsPage() {
       let url = '/api/items';
       const params = new URLSearchParams();
       
-      if (selectedRoom) {
-        params.append('room_id', selectedRoom);
-      } else if (selectedSchool) {
-        params.append('school_id', selectedSchool);
+      // For Kepala Sekolah, always filter by their school regardless of UI filters
+      if (userRole === 'kepala_sekolah' && userSchoolId) {
+        params.append('school_id', userSchoolId);
+      } else {
+        // For other roles, use the selected filters
+        if (selectedRoom) {
+          params.append('room_id', selectedRoom);
+        } else if (selectedSchool) {
+          params.append('school_id', selectedSchool);
+        }
       }
       
       if (selectedCategory) {
@@ -85,12 +124,18 @@ export default function ItemsPage() {
   // Fetch items when filters change
   useEffect(() => {
     fetchItems();
-  }, [selectedSchool, selectedRoom, selectedCategory]);
+  }, [selectedSchool, selectedRoom, selectedCategory, userRole, userSchoolId]);
 
   // Fetch rooms when selected school changes
   useEffect(() => {
-    if (selectedSchool) {
-      fetch(`/api/rooms?school_id=${selectedSchool}`)
+    // Create a variable to store the actual school ID to filter by
+    // For kepala_sekolah users, always use their assigned school
+    const effectiveSchoolId = userRole === 'kepala_sekolah' && userSchoolId
+      ? userSchoolId
+      : selectedSchool;
+      
+    if (effectiveSchoolId) {
+      fetch(`/api/rooms?school_id=${effectiveSchoolId}`)
         .then(res => res.json())
         .then(data => {
           setRooms(data);
@@ -103,14 +148,14 @@ export default function ItemsPage() {
           }
         })
         .catch(err => console.error('Error fetching rooms:', err));
-    } else {
-      // If no school is selected, fetch all rooms
+    } else if (userRole !== 'kepala_sekolah') {
+      // If no school is selected and not kepala_sekolah, fetch all rooms
       fetch('/api/rooms')
         .then(res => res.json())
         .then(data => setRooms(data))
         .catch(err => console.error('Error fetching rooms:', err));
     }
-  }, [selectedSchool]);
+  }, [selectedSchool, userRole, userSchoolId]);
 
   // Handle item deletion
   const handleDelete = async (id) => {
@@ -164,6 +209,13 @@ export default function ItemsPage() {
     }
   };
 
+  // Check if user can add items (admin or kepala_sekolah with a selected school)
+  const canAddItem = userRole === 'admin' || 
+    (userRole === 'kepala_sekolah' && selectedSchool && parseInt(selectedSchool) === userSchoolId);
+
+  // Hide the school filter for Kepala Sekolah users
+  const showSchoolFilter = userRole !== 'kepala_sekolah';
+
   return (
     <div>
       <Breadcrumb />
@@ -177,27 +229,30 @@ export default function ItemsPage() {
         <div className="px-4 py-6 sm:px-0">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
             <div className="w-full md:w-auto flex flex-col md:flex-row gap-4">
-              <div>
-                <label htmlFor="school-filter" className="block text-sm font-medium text-gray-700 mb-1">
-                  Filter by School
-                </label>
-                <select
-                  id="school-filter"
-                  value={selectedSchool}
-                  onChange={(e) => {
-                    setSelectedSchool(e.target.value);
-                    setSelectedRoom(''); // Reset room selection when school changes
-                  }}
-                  className="block w-full md:w-48 px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                >
-                  <option value="">All Schools</option>
-                  {schools.map((school) => (
-                    <option key={school.id} value={school.id}>
-                      {school.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* Only show school filter for non-kepala_sekolah users */}
+              {showSchoolFilter && (
+                <div>
+                  <label htmlFor="school-filter" className="block text-sm font-medium text-gray-700 mb-1">
+                    Filter by School
+                  </label>
+                  <select
+                    id="school-filter"
+                    value={selectedSchool}
+                    onChange={(e) => {
+                      setSelectedSchool(e.target.value);
+                      setSelectedRoom(''); // Reset room selection when school changes
+                    }}
+                    className="block w-full md:w-48 px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  >
+                    <option value="">All Schools</option>
+                    {schools.map((school) => (
+                      <option key={school.id} value={school.id}>
+                        {school.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               
               <div>
                 <label htmlFor="room-filter" className="block text-sm font-medium text-gray-700 mb-1">
@@ -212,7 +267,7 @@ export default function ItemsPage() {
                   <option value="">All Rooms</option>
                   {rooms.map((room) => (
                     <option key={room.id} value={room.id}>
-                      {room.school_name} - {room.name}
+                      {room.name} ({room.school_name})
                     </option>
                   ))}
                 </select>
@@ -238,15 +293,17 @@ export default function ItemsPage() {
               </div>
             </div>
             
-            <button
-              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded whitespace-nowrap"
-              onClick={() => {
-                setEditItem(null);
-                setShowForm(!showForm);
-              }}
-            >
-              {showForm ? 'Cancel' : 'Add New Item'}
-            </button>
+            {canAddItem && (
+              <button
+                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded whitespace-nowrap"
+                onClick={() => {
+                  setEditItem(null);
+                  setShowForm(!showForm);
+                }}
+              >
+                {showForm ? 'Cancel' : 'Add New Item'}
+              </button>
+            )}
           </div>
 
           {showForm && (
@@ -261,7 +318,9 @@ export default function ItemsPage() {
                   setEditItem(null);
                   setShowForm(false);
                 }}
-                rooms={rooms}
+                rooms={userRole === 'kepala_sekolah' 
+                  ? rooms.filter(room => parseInt(room.school_id) === parseInt(userSchoolId))
+                  : rooms}
                 categories={categories}
                 selectedSchool={selectedSchool}
               />
@@ -304,42 +363,52 @@ export default function ItemsPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {items.map((item) => (
-                    <tr key={item.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{item.name}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{item.category_name}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{item.quantity}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{item.room_name}</div>
-                        <div className="text-xs text-gray-500">{item.school_name}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{item.condition}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => handleEdit(item)}
-                            className="px-3 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(item.id)}
-                            className="px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {items.map((item) => {
+                    // Extract school ID from the item's data 
+                    // (assuming item has room_school_id or we're calculating it from the room's school)
+                    const itemSchoolId = item.room_school_id || parseInt(item.school_id);
+                    
+                    return (
+                      <tr key={item.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{item.name}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{item.category_name}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{item.quantity}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{item.room_name}</div>
+                          <div className="text-xs text-gray-500">{item.school_name}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{item.condition}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex space-x-2">
+                            {canManageItem(itemSchoolId) && (
+                              <>
+                                <button
+                                  onClick={() => handleEdit(item)}
+                                  className="px-3 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(item.id)}
+                                  className="px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200"
+                                >
+                                  Delete
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import openDb from '../../../../lib/db';
+import { canAccessItem } from '../../../../lib/school-access';
 
 // Helper function to get an item by ID with joined data
 async function getItemById(id) {
@@ -46,6 +47,16 @@ export async function GET(request, { params }) {
 export async function PUT(request, { params }) {
   try {
     const id = params.id;
+    
+    // Check if user has access to this item
+    const hasAccess = await canAccessItem(id);
+    if (!hasAccess) {
+      return NextResponse.json(
+        { message: 'You do not have permission to modify this item' },
+        { status: 403 }
+      );
+    }
+    
     const body = await request.json();
     
     // Check if item exists
@@ -136,6 +147,15 @@ export async function PUT(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     const id = params.id;
+    
+    // Check if user has access to delete this item
+    const hasAccess = await canAccessItem(id);
+    if (!hasAccess) {
+      return NextResponse.json(
+        { message: 'You do not have permission to delete this item' },
+        { status: 403 }
+      );
+    }
     
     // Check if item exists
     const item = await getItemById(id);

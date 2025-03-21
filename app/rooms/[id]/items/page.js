@@ -20,6 +20,35 @@ export default function RoomItemsPage() {
   const [editItem, setEditItem] = useState(null);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [userRole, setUserRole] = useState('');
+  const [userSchoolId, setUserSchoolId] = useState(null);
+  
+  // Fetch user role and school
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      try {
+        const response = await fetch('/api/auth/me');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.user) {
+            setUserRole(data.user.role || '');
+            setUserSchoolId(data.user.school_id || null);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user role:', error);
+      }
+    };
+    
+    fetchUserInfo();
+  }, []);
+  
+  // Function to check if user has permission to manage this room
+  const canManageRoom = () => {
+    if (!room) return false;
+    return userRole === 'admin' || 
+      (userRole === 'kepala_sekolah' && parseInt(userSchoolId) === room.school_id);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -179,6 +208,25 @@ export default function RoomItemsPage() {
             <Link href="/rooms">
               <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
                 Back to Rooms
+              </button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // If user doesn't have permission, show access denied
+  if (!canManageRoom()) {
+    return (
+      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="px-4 sm:px-0">
+          <div className="text-center py-12 bg-white rounded-lg shadow">
+            <h2 className="text-2xl font-bold text-red-600 mb-2">Access Denied</h2>
+            <p className="text-gray-500 mb-4">You don't have permission to manage items in this room.</p>
+            <Link href={`/rooms/${roomId}`}>
+              <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                Back to Room
               </button>
             </Link>
           </div>

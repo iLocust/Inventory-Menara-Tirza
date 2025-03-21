@@ -18,6 +18,32 @@ export default function SchoolRoomsPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editRoom, setEditRoom] = useState(null);
+  const [userRole, setUserRole] = useState('');
+  const [userSchoolId, setUserSchoolId] = useState(null);
+
+  // Fetch user role and school
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      try {
+        const response = await fetch('/api/auth/me');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.user) {
+            setUserRole(data.user.role || '');
+            setUserSchoolId(data.user.school_id || null);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user role:', error);
+      }
+    };
+    
+    fetchUserInfo();
+  }, []);
+  
+  // Check if user has permission for this school
+  const canManageRooms = userRole === 'admin' || 
+    (userRole === 'kepala_sekolah' && parseInt(userSchoolId) === parseInt(schoolId));
 
   // Fetch school and rooms data
   useEffect(() => {
@@ -199,15 +225,17 @@ export default function SchoolRoomsPage() {
         <div className="px-4 py-6 sm:px-0">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold text-gray-800">All Rooms in {school.name}</h2>
-            <button
-              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-              onClick={() => {
-                setEditRoom(null);
-                setShowForm(!showForm);
-              }}
-            >
-              {showForm ? 'Cancel' : 'Add New Room'}
-            </button>
+            {canManageRooms && (
+              <button
+                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                onClick={() => {
+                  setEditRoom(null);
+                  setShowForm(!showForm);
+                }}
+              >
+                {showForm ? 'Cancel' : 'Add New Room'}
+              </button>
+            )}
           </div>
 
           {showForm && (
@@ -290,18 +318,22 @@ export default function SchoolRoomsPage() {
                               Items
                             </button>
                           </Link>
-                          <button
-                            onClick={() => handleEdit(room)}
-                            className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(room.id)}
-                            className="px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200"
-                          >
-                            Delete
-                          </button>
+                          {canManageRooms && (
+                            <>
+                              <button
+                                onClick={() => handleEdit(room)}
+                                className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDelete(room.id)}
+                                className="px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200"
+                              >
+                                Delete
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>

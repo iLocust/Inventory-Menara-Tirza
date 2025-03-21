@@ -20,7 +20,8 @@ export async function GET(request) {
         i.*,
         ic.name as category_name,
         r.name as room_name,
-        s.name as school_name
+        s.name as school_name,
+        r.school_id as room_school_id
       FROM
         items i
       JOIN item_categories ic ON i.category_id = ic.id
@@ -135,7 +136,8 @@ export async function POST(request) {
         i.*,
         ic.name as category_name,
         r.name as room_name,
-        s.name as school_name
+        s.name as school_name,
+        r.school_id as room_school_id
       FROM
         items i
       JOIN item_categories ic ON i.category_id = ic.id
