@@ -7,7 +7,27 @@ import { usePathname } from 'next/navigation';
 export default function Sidebar() {
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(true);
+  const [userRole, setUserRole] = useState('');
   const sidebarRef = useRef(null);
+  
+  // Fetch current user's role
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      try {
+        const response = await fetch('/api/auth/me');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.user) {
+            setUserRole(data.user.role || '');
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user role:', error);
+      }
+    };
+    
+    fetchUserRole();
+  }, [pathname]);
   
   // Add click outside detection
   useEffect(() => {
@@ -34,7 +54,8 @@ export default function Sidebar() {
     setIsCollapsed(true);
   }, []);
 
-  const menuItems = [
+  // Define all menu items, both common and role-specific
+  const allMenuItems = [
     {
       title: 'Dashboard',
       path: '/',
@@ -43,6 +64,7 @@ export default function Sidebar() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
         </svg>
       ),
+      roles: ['admin', 'kepala_sekolah', 'guru', 'staff', 'murid'] // Everyone can access dashboard
     },
     {
       title: 'Items',
@@ -52,6 +74,7 @@ export default function Sidebar() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
         </svg>
       ),
+      roles: ['admin', 'kepala_sekolah', 'guru', 'staff', 'murid'] // Everyone can view items
     },
     {
       title: 'Rooms',
@@ -61,6 +84,7 @@ export default function Sidebar() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
         </svg>
       ),
+      roles: ['admin', 'kepala_sekolah', 'guru', 'staff', 'murid'] // Everyone can view rooms
     },
     {
       title: 'Schools',
@@ -70,6 +94,7 @@ export default function Sidebar() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
         </svg>
       ),
+      roles: ['admin', 'kepala_sekolah', 'guru', 'staff', 'murid'] // Everyone can view schools
     },
     {
       title: 'Users',
@@ -79,8 +104,18 @@ export default function Sidebar() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
         </svg>
       ),
+      roles: ['admin'] // Only admin can manage users
     },
   ];
+  
+  // Filter menu items based on user's role
+  const menuItems = allMenuItems.filter(item => {
+    // If we don't know the user role yet, only show items that everyone can access
+    if (!userRole) {
+      return item.roles.includes('murid'); // Most restrictive role as default
+    }
+    return item.roles.includes(userRole);
+  });
 
   // Toggle sidebar collapse on mobile
   const toggleSidebar = () => {
