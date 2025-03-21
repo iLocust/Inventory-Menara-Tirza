@@ -2,12 +2,14 @@
 
 import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 
 export default function Navbar() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [userName, setUserName] = useState('User');
+  const [userRole, setUserRole] = useState('');
   const router = useRouter();
+  const pathname = usePathname();
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -29,22 +31,48 @@ export default function Navbar() {
     };
   }, [showDropdown]);
   
-  useEffect(() => {
-    // Fetch current user information
-    const fetchUserInfo = async () => {
-      try {
-        const response = await fetch('/api/auth/me');
-        if (response.ok) {
-          const data = await response.json();
-          setUserName(data.name || 'User');
+  // Create a function to fetch user info that can be reused
+  const fetchUserInfo = async () => {
+    try {
+      // Add cache busting parameter to prevent caching
+      const response = await fetch('/api/auth/me?_=' + new Date().getTime());
+      if (response.ok) {
+        const data = await response.json();
+        if (data.user) {
+          setUserName(data.user.name || 'User');
+          setUserRole(data.user.role || '');
+        } else {
+          // If no user data, reset to defaults
+          setUserName('User');
+          setUserRole('');
         }
-      } catch (error) {
-        console.error('Error fetching user info:', error);
       }
-    };
+    } catch (error) {
+      console.error('Error fetching user info:', error);
+    }
+  };
 
+  // Fetch user info when component mounts
+  useEffect(() => {
     fetchUserInfo();
   }, []);
+  
+  // Add an effect to update user info when the URL path changes
+  // This ensures we refresh the user data after login/logout
+  useEffect(() => {
+    // Fetch user info when pathname changes (after navigation)
+    fetchUserInfo();
+    
+    const handleRouteChange = () => {
+      fetchUserInfo();
+    };
+
+    // Listen for when the component becomes visible
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', handleRouteChange);
+      return () => window.removeEventListener('focus', handleRouteChange);
+    }
+  }, [pathname]); // Re-run when pathname changes
 
   const handleLogout = async () => {
     try {
@@ -56,8 +84,12 @@ export default function Navbar() {
       });
 
       if (response.ok) {
-        // Redirect to login page after successful logout
-        router.push('/login');
+        // Reset user state
+        setUserName('User');
+        setUserRole('');
+        
+        // Redirect to login page and force a refresh
+        window.location.href = '/login';
       }
     } catch (error) {
       console.error('Logout error:', error);
@@ -81,7 +113,14 @@ export default function Navbar() {
                 className="flex items-center focus:outline-none"
                 onClick={() => setShowDropdown(!showDropdown)}
               >
-                <span className="hidden md:inline-block mr-2">{userName}</span>
+                <span className="hidden md:inline-block mr-2">
+                  <span className="font-medium">{userName}</span>
+                  {userRole && (
+                    <span className="ml-1 text-xs bg-blue-700 px-2 py-0.5 rounded-full">
+                      {userRole.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                    </span>
+                  )}
+                </span>
                 <div className="h-8 w-8 rounded-full bg-white text-blue-600 p-1 flex items-center justify-center">
                   <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
