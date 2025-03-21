@@ -155,6 +155,7 @@ export default function SchoolsPage() {
                   setEditSchool(null);
                   setShowForm(false);
                 }}
+                userRole={userRole}
               />
             </div>
           )}

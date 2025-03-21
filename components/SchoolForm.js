@@ -10,7 +10,7 @@ const initialFormState = {
   kepala_sekolah_id: ''
 };
 
-export default function SchoolForm({ initialData, onSubmit, onCancel }) {
+export default function SchoolForm({ initialData, onSubmit, onCancel, userRole }) {
   const [formData, setFormData] = useState(initialFormState);
   const [kepalaSekolahOptions, setKepalaSekolahOptions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -120,24 +120,36 @@ export default function SchoolForm({ initialData, onSubmit, onCancel }) {
           />
         </div>
 
-        <div>
-          <label htmlFor="kepala_sekolah_id" className="block text-sm font-medium text-gray-700">
-            Kepala Sekolah
-          </label>
-          <select
-            id="kepala_sekolah_id"
-            name="kepala_sekolah_id"
-            value={formData.kepala_sekolah_id}
-            onChange={handleChange}
-            className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md px-3 py-2 border"
-          >
-            <option value="">-- Pilih Kepala Sekolah --</option>
-            {kepalaSekolahOptions.map(ks => (
-              <option key={ks.id} value={ks.id}>{ks.name}</option>
-            ))}
-          </select>
-          {loading && <p className="text-xs text-gray-500 mt-1">Loading kepala sekolah options...</p>}
-        </div>
+        {userRole !== 'kepala_sekolah' ? (
+          <div>
+            <label htmlFor="kepala_sekolah_id" className="block text-sm font-medium text-gray-700">
+              Kepala Sekolah
+            </label>
+            <select
+              id="kepala_sekolah_id"
+              name="kepala_sekolah_id"
+              value={formData.kepala_sekolah_id}
+              onChange={handleChange}
+              className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md px-3 py-2 border"
+            >
+              <option value="">-- Pilih Kepala Sekolah --</option>
+              {kepalaSekolahOptions.map(ks => (
+                <option key={ks.id} value={ks.id}>{ks.name}</option>
+              ))}
+            </select>
+            {loading && <p className="text-xs text-gray-500 mt-1">Loading kepala sekolah options...</p>}
+          </div>
+        ) : (
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Kepala Sekolah
+            </label>
+            <p className="mt-1 text-sm text-gray-500">
+              {initialData?.kepala_sekolah_name || "Tidak dapat mengubah Kepala Sekolah"}
+            </p>
+            <input type="hidden" name="kepala_sekolah_id" value={formData.kepala_sekolah_id} />
+          </div>
+        )}
       </div>
 
       <div className="mt-6 flex justify-end space-x-3">

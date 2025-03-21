@@ -97,6 +97,12 @@ export async function PUT(request, { params }) {
       );
     }
     
+    // If the user is a kepala_sekolah, don't allow them to change the kepala_sekolah_id
+    // instead, keep the existing one
+    if (user && user.role === 'kepala_sekolah' && school.kepala_sekolah_id) {
+      body.kepala_sekolah_id = school.kepala_sekolah_id;
+    }
+    
     const db = await openDb();
     
     await db.run(
