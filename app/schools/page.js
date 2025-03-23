@@ -202,11 +202,11 @@ export default function SchoolsPage() {
                         )}
                       </div>
                       <div className="flex space-x-2">
-                        <Link href={`/schools/${school.id}/rooms`}>
+                        {/* <Link href={`/schools/${school.id}/rooms`}>
                           <button className="px-3 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200">
                             Rooms
                           </button>
-                        </Link>
+                        </Link> */}
                         {(canEditSchool(school.id)) && (
                           <button
                             onClick={() => handleEdit(school)}

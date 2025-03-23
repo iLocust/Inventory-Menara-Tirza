@@ -170,7 +170,7 @@ export default function SchoolDetail() {
               <h3 className="text-lg leading-6 font-medium text-gray-900">Rooms</h3>
               <Link href={`/schools/${schoolId}/rooms`}>
                 <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-                  View All Rooms
+                  Edit Rooms
                 </button>
               </Link>
             </div>
@@ -199,13 +199,13 @@ export default function SchoolDetail() {
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Responsible
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        {/* <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Actions
-                        </th>
+                        </th> */}
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {rooms.slice(0, 5).map((room) => (
+                      {rooms.slice(0, 20).map((room) => (
                         <tr key={room.id}>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-medium text-blue-600">
@@ -229,20 +229,20 @@ export default function SchoolDetail() {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {room.responsible_user_name || 'Not assigned'}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          {/* <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <Link href={`/rooms/${room.id}/items`}>
                               <button className="text-blue-600 hover:text-blue-900 mr-4">
                                 View Items
                               </button>
                             </Link>
-                          </td>
+                          </td> */}
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               )}
-              {rooms.length > 5 && (
+              {rooms.length > 20 && (
                 <div className="px-4 py-3 bg-gray-50 text-right sm:px-6">
                   <Link href={`/schools/${schoolId}/rooms`} className="text-blue-600 hover:text-blue-800">
                     View all {rooms.length} rooms →

@@ -313,11 +313,11 @@ export default function SchoolRoomsPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex space-x-2">
-                          <Link href={`/rooms/${room.id}/items`}>
+                          {/* <Link href={`/rooms/${room.id}/items`}>
                             <button className="px-3 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200">
                               Items
                             </button>
-                          </Link>
+                          </Link> */}
                           {canManageRooms && (
                             <>
                               <button
