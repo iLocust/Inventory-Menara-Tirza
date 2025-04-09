@@ -9,7 +9,6 @@ export default function SchoolsPage() {
   const [schools, setSchools] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [editSchool, setEditSchool] = useState(null);
   const [userRole, setUserRole] = useState('');
   const [userSchoolId, setUserSchoolId] = useState(null);
   
@@ -65,51 +64,21 @@ export default function SchoolsPage() {
     fetchSchools();
   }, []);
 
-  // Handle school deletion
-  const handleDelete = async (id) => {
-    if (confirm('Are you sure you want to delete this school? This will also delete all rooms and items in this school.')) {
-      try {
-        await fetch(`/api/schools/${id}`, {
-          method: 'DELETE',
-        });
-        fetchSchools(); // Refresh the list
-      } catch (error) {
-        console.error('Error deleting school:', error);
-      }
-    }
-  };
+  // Note: Edit and Delete functionality moved to individual school pages
 
-  // Handle editing a school
-  const handleEdit = (school) => {
-    setEditSchool(school);
-    setShowForm(true);
-  };
-
-  // Handle form submission (create/update)
+  // Handle form submission (create only)
   const handleFormSubmit = async (formData) => {
     try {
-      if (editSchool) {
-        // Update existing school
-        await fetch(`/api/schools/${editSchool.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formData),
-        });
-      } else {
-        // Create new school
-        await fetch('/api/schools', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formData),
-        });
-      }
+      // Create new school
+      await fetch('/api/schools', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
       
       // Reset form state and refresh data
-      setEditSchool(null);
       setShowForm(false);
       fetchSchools();
     } catch (error) {
@@ -133,10 +102,7 @@ export default function SchoolsPage() {
             {canManageSchools && (
               <button
                 className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-                onClick={() => {
-                  setEditSchool(null);
-                  setShowForm(!showForm);
-                }}
+                onClick={() => setShowForm(!showForm)}
               >
                 {showForm ? 'Cancel' : 'Add New School'}
               </button>
@@ -146,15 +112,12 @@ export default function SchoolsPage() {
           {showForm && (
             <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-white">
               <h3 className="text-lg font-semibold mb-4">
-                {editSchool ? 'Edit School' : 'Add New School'}
+                Add New School
               </h3>
               <SchoolForm
-                initialData={editSchool}
+                initialData={null}
                 onSubmit={handleFormSubmit}
-                onCancel={() => {
-                  setEditSchool(null);
-                  setShowForm(false);
-                }}
+                onCancel={() => setShowForm(false)}
                 userRole={userRole}
               />
             </div>
@@ -207,22 +170,11 @@ export default function SchoolsPage() {
                             Rooms
                           </button>
                         </Link> */}
-                        {(canEditSchool(school.id)) && (
-                          <button
-                            onClick={() => handleEdit(school)}
-                            className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200"
-                          >
-                            Edit
+                        {/* <Link href={`/schools/${school.id}`}>
+                          <button className="px-3 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200">
+                            Details
                           </button>
-                        )}
-                        {canManageSchools && (
-                          <button
-                            onClick={() => handleDelete(school.id)}
-                            className="px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200"
-                          >
-                            Delete
-                          </button>
-                        )}
+                        </Link> */}
                       </div>
                     </div>
                   </li>

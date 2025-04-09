@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Breadcrumb from '../../../components/Breadcrumb';
+import SchoolForm from '../../../components/SchoolForm';
 
 export default function SchoolDetail() {
   const params = useParams();
+  const router = useRouter();
   const schoolId = params.id;
   
   const [school, setSchool] = useState(null);
@@ -16,6 +18,75 @@ export default function SchoolDetail() {
     totalRooms: 0,
     totalItems: 0
   });
+  const [showForm, setShowForm] = useState(false);
+  const [userRole, setUserRole] = useState('');
+  const [userSchoolId, setUserSchoolId] = useState(null);
+
+  // Fetch the current user's role
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      try {
+        const response = await fetch('/api/auth/me');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.user) {
+            setUserRole(data.user.role || '');
+            setUserSchoolId(data.user.school_id || null);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user role:', error);
+      }
+    };
+    
+    fetchUserRole();
+  }, []);
+  
+  // Check if user has permission to create or delete schools
+  const canManageSchools = userRole !== 'kepala_sekolah';
+  
+  // Check if user can edit a specific school
+  const canEditSchool = (schoolId) => {
+    // Admin and other roles except kepala_sekolah can edit any school
+    if (userRole !== 'kepala_sekolah') return true;
+    
+    // Kepala sekolah can only edit their own school
+    if (!userSchoolId) return false; // If not assigned to a school, can't edit any
+    return parseInt(userSchoolId) === parseInt(schoolId);
+  };
+
+  // Handle form submission (update)
+  const handleFormSubmit = async (formData) => {
+    try {
+      await fetch(`/api/schools/${schoolId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+      
+      // Reset form state and refresh data
+      setShowForm(false);
+      fetchSchoolData();
+    } catch (error) {
+      console.error('Error saving school:', error);
+    }
+  };
+
+  // Handle school deletion
+  const handleDelete = async (id) => {
+    if (confirm('Are you sure you want to delete this school? This will also delete all rooms and items in this school.')) {
+      try {
+        await fetch(`/api/schools/${id}`, {
+          method: 'DELETE',
+        });
+        router.push('/schools');
+      } catch (error) {
+        console.error('Error deleting school:', error);
+      }
+    }
+  };
 
   useEffect(() => {
     const fetchSchoolData = async () => {
@@ -106,17 +177,48 @@ export default function SchoolDetail() {
         <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <h1 className="text-3xl font-bold text-gray-900">{school.name}</h1>
-            <Link href="/schools">
-              <button className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded">
-                Back to Schools
-              </button>
-            </Link>
+            <div className="flex space-x-3">
+              {canEditSchool(schoolId) && (
+                <button
+                  onClick={() => setShowForm(!showForm)}
+                  className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded"
+                >
+                  {showForm ? 'Cancel' : 'Edit School'}
+                </button>
+              )}
+              {canManageSchools && (
+                <button
+                  onClick={() => handleDelete(schoolId)}
+                  className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded"
+                >
+                  Delete School
+                </button>
+              )}
+              <Link href="/schools">
+                <button className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded">
+                  Back to Schools
+                </button>
+              </Link>
+            </div>
           </div>
         </div>
       </header>
 
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 sm:px-0">
+          {/* Edit form */}
+          {showForm && (
+            <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-white">
+              <h3 className="text-lg font-semibold mb-4">Edit School</h3>
+              <SchoolForm
+                initialData={school}
+                onSubmit={handleFormSubmit}
+                onCancel={() => setShowForm(false)}
+                userRole={userRole}
+              />
+            </div>
+          )}
+          
           {/* School details card */}
           <div className="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
             <div className="px-4 py-5 sm:px-6">
