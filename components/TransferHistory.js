@@ -65,6 +65,9 @@ export default function TransferHistory({ roomId }) {
               To
             </th>
             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Created By
+            </th>
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Notes
             </th>
           </tr>
@@ -96,6 +99,9 @@ export default function TransferHistory({ roomId }) {
                   <div className={`text-sm ${isDestination ? 'font-semibold text-green-700' : 'text-gray-900'}`}>
                     {transfer.destination_room_name}
                   </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm text-gray-900">{transfer.user_name || 'Not Recorded'}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm text-gray-900">{transfer.notes || '-'}</div>

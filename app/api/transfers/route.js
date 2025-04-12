@@ -20,13 +20,15 @@ export async function GET(request) {
         i.name as item_name,
         sr.name as source_room_name,
         dr.name as destination_room_name,
-        sch.name as school_name
+        sch.name as school_name,
+        u.name as user_name
       FROM
         item_transfers t
       JOIN items i ON t.item_id = i.id
       JOIN rooms sr ON t.source_room_id = sr.id
       JOIN rooms dr ON t.destination_room_id = dr.id
       JOIN schools sch ON sr.school_id = sch.id
+      LEFT JOIN users u ON t.user_id = u.id
     `;
     
     const params = [];
@@ -147,6 +149,12 @@ export async function POST(request) {
     await db.run('BEGIN TRANSACTION');
     
     try {
+      // Get the current user from session if available
+      let userId = null;
+      if (body.user_id) {
+        userId = body.user_id;
+      }
+
       // Insert transfer record
       const result = await db.run(
         `INSERT INTO item_transfers (
@@ -154,14 +162,16 @@ export async function POST(request) {
           source_room_id,
           destination_room_id,
           quantity,
-          notes
-        ) VALUES (?, ?, ?, ?, ?)`,
+          notes,
+          user_id
+        ) VALUES (?, ?, ?, ?, ?, ?)`,
         [
           body.item_id,
           body.source_room_id,
           body.destination_room_id,
           body.quantity,
-          body.notes || ''
+          body.notes || '',
+          userId
         ]
       );
       
@@ -216,12 +226,14 @@ export async function POST(request) {
           t.*,
           i.name as item_name,
           sr.name as source_room_name,
-          dr.name as destination_room_name
+          dr.name as destination_room_name,
+          u.name as user_name
         FROM
           item_transfers t
         JOIN items i ON t.item_id = i.id
         JOIN rooms sr ON t.source_room_id = sr.id
         JOIN rooms dr ON t.destination_room_id = dr.id
+        LEFT JOIN users u ON t.user_id = u.id
         WHERE t.id = ?
       `, result.lastID);
       

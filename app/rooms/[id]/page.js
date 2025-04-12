@@ -83,6 +83,21 @@ export default function RoomDetail() {
   // Handle transfer submission
   const handleTransferSubmit = async (formData) => {
     try {
+      // Ensure user_id is included if not already set
+      if (!formData.user_id) {
+        try {
+          const userResponse = await fetch('/api/auth/me');
+          if (userResponse.ok) {
+            const userData = await userResponse.json();
+            if (userData.user) {
+              formData.user_id = userData.user.id;
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching user:', error);
+        }
+      }
+      
       const response = await fetch('/api/transfers', {
         method: 'POST',
         headers: {

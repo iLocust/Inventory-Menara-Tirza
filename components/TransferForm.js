@@ -8,8 +8,28 @@ export default function TransferForm({ item, onSubmit, onCancel, schoolId }) {
     source_room_id: item?.room_id || '',
     destination_room_id: '',
     quantity: 1,
-    notes: ''
+    notes: '',
+    user_id: null
   });
+  
+  // Fetch current user
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const response = await fetch('/api/auth/me');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.user) {
+            setFormData(prev => ({ ...prev, user_id: data.user.id }));
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user:', error);
+      }
+    };
+    
+    fetchUser();
+  }, []);
   
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
