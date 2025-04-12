@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import Breadcrumb from '../../../components/Breadcrumb';
 import SchoolForm from '../../../components/SchoolForm';
+import RoomForm from '../../../components/RoomForm';
 
 export default function SchoolDetail() {
   const params = useParams();
@@ -21,6 +22,13 @@ export default function SchoolDetail() {
   const [showForm, setShowForm] = useState(false);
   const [userRole, setUserRole] = useState('');
   const [userSchoolId, setUserSchoolId] = useState(null);
+  
+  // For room management
+  const [showRoomForm, setShowRoomForm] = useState(false);
+  const [editRoom, setEditRoom] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [roomTypes, setRoomTypes] = useState([]);
+  const [roomStatuses, setRoomStatuses] = useState([]);
 
   // Fetch the current user's role
   useEffect(() => {
@@ -55,7 +63,66 @@ export default function SchoolDetail() {
     return parseInt(userSchoolId) === parseInt(schoolId);
   };
 
-  // Handle form submission (update)
+  // Check if user has permission to manage rooms in this school
+  const canManageRooms = () => {
+    if (!school) return false;
+    return userRole === 'admin' || 
+      (userRole === 'kepala_sekolah' && parseInt(userSchoolId) === parseInt(schoolId));
+  };
+
+  // Function to fetch all data
+  const fetchSchoolData = async () => {
+    setLoading(true);
+    try {
+      // Fetch school details
+      const schoolRes = await fetch(`/api/schools/${schoolId}`);
+      if (!schoolRes.ok) {
+        throw new Error('School not found');
+      }
+      const schoolData = await schoolRes.json();
+      setSchool(schoolData);
+      
+      // Fetch rooms in this school
+      const roomsRes = await fetch(`/api/rooms?school_id=${schoolId}`);
+      const roomsData = await roomsRes.json();
+      setRooms(roomsData);
+      
+      // Calculate stats
+      setStats({
+        totalRooms: roomsData.length,
+        totalItems: 0 // We'll need to sum up items later
+      });
+      
+      // Fetch items count
+      const itemsRes = await fetch(`/api/items?school_id=${schoolId}`);
+      const itemsData = await itemsRes.json();
+      setStats(prev => ({
+        ...prev,
+        totalItems: itemsData.length
+      }));
+      
+      // Fetch users for assignment
+      const usersRes = await fetch('/api/users');
+      const usersData = await usersRes.json();
+      setUsers(usersData);
+      
+      // Fetch room types
+      const typesRes = await fetch('/api/reference/room-types');
+      const typesData = await typesRes.json();
+      setRoomTypes(typesData);
+      
+      // Fetch room statuses
+      const statusesRes = await fetch('/api/reference/room-statuses');
+      const statusesData = await statusesRes.json();
+      setRoomStatuses(statusesData);
+    } catch (error) {
+      console.error('Error fetching school data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle school form submission (update)
   const handleFormSubmit = async (formData) => {
     try {
       await fetch(`/api/schools/${schoolId}`, {
@@ -88,43 +155,70 @@ export default function SchoolDetail() {
     }
   };
 
-  useEffect(() => {
-    const fetchSchoolData = async () => {
-      setLoading(true);
+  // Handle room deletion
+  const handleDeleteRoom = async (id) => {
+    if (confirm('Are you sure you want to delete this room? This will also delete all items in this room.')) {
       try {
-        // Fetch school details
-        const schoolRes = await fetch(`/api/schools/${schoolId}`);
-        if (!schoolRes.ok) {
-          throw new Error('School not found');
-        }
-        const schoolData = await schoolRes.json();
-        setSchool(schoolData);
-        
-        // Fetch rooms in this school
-        const roomsRes = await fetch(`/api/rooms?school_id=${schoolId}`);
-        const roomsData = await roomsRes.json();
-        setRooms(roomsData);
-        
-        // Calculate stats
-        setStats({
-          totalRooms: roomsData.length,
-          totalItems: 0 // We'll need to sum up items later
+        await fetch(`/api/rooms/${id}`, {
+          method: 'DELETE',
         });
         
-        // Fetch items count
-        const itemsRes = await fetch(`/api/items?school_id=${schoolId}`);
-        const itemsData = await itemsRes.json();
-        setStats(prev => ({
-          ...prev,
-          totalItems: itemsData.length
-        }));
+        // Refresh the data
+        fetchSchoolData();
       } catch (error) {
-        console.error('Error fetching school data:', error);
-      } finally {
-        setLoading(false);
+        console.error('Error deleting room:', error);
       }
-    };
-    
+    }
+  };
+
+  // Handle editing a room
+  const handleEditRoom = (room) => {
+    setEditRoom(room);
+    setShowRoomForm(true);
+  };
+
+  // Handle room form submission (create/update)
+  const handleRoomFormSubmit = async (formData) => {
+    try {
+      // Make sure the room is assigned to the current school
+      const roomData = {
+        ...formData,
+        school_id: parseInt(schoolId)
+      };
+      
+      if (editRoom) {
+        // Update existing room
+        await fetch(`/api/rooms/${editRoom.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(roomData),
+        });
+      } else {
+        // Create new room
+        await fetch('/api/rooms', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(roomData),
+        });
+      }
+      
+      // Reset form state
+      setEditRoom(null);
+      setShowRoomForm(false);
+      
+      // Refresh data
+      fetchSchoolData();
+    } catch (error) {
+      console.error('Error saving room:', error);
+    }
+  };
+
+  // Load data on initial page load
+  useEffect(() => {
     if (schoolId) {
       fetchSchoolData();
     }
@@ -206,7 +300,7 @@ export default function SchoolDetail() {
 
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 sm:px-0">
-          {/* Edit form */}
+          {/* Edit School form */}
           {showForm && (
             <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-white">
               <h3 className="text-lg font-semibold mb-4">Edit School</h3>
@@ -266,23 +360,56 @@ export default function SchoolDetail() {
             </div>
           </div>
 
+          {/* Add Room Form */}
+          {showRoomForm && (
+            <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-white">
+              <h3 className="text-lg font-semibold mb-4">
+                {editRoom ? 'Edit Room' : 'Add New Room'}
+              </h3>
+              <RoomForm
+                initialData={{...editRoom, school_id: parseInt(schoolId)}}
+                onSubmit={handleRoomFormSubmit}
+                onCancel={() => {
+                  setEditRoom(null);
+                  setShowRoomForm(false);
+                }}
+                schools={[school]} // Only show the current school
+                users={users}
+                roomTypes={roomTypes}
+                roomStatuses={roomStatuses}
+              />
+            </div>
+          )}
+          
           {/* Rooms List */}
           <div className="bg-white shadow overflow-hidden sm:rounded-lg">
             <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
               <h3 className="text-lg leading-6 font-medium text-gray-900">Rooms</h3>
-              <Link href={`/schools/${schoolId}/rooms`}>
-                <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-                  Edit Rooms
+              {canManageRooms() && (
+                <button 
+                  className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                  onClick={() => {
+                    setEditRoom(null);
+                    setShowRoomForm(!showRoomForm);
+                  }}
+                >
+                  {showRoomForm ? 'Cancel' : 'Add New Room'}
                 </button>
-              </Link>
+              )}
             </div>
             <div className="border-t border-gray-200">
               {rooms.length === 0 ? (
                 <div className="px-4 py-5 text-center">
                   <p className="text-gray-500">No rooms found for this school.</p>
-                  <Link href={`/rooms?school_id=${schoolId}`} className="text-blue-600 hover:text-blue-800 mt-2 inline-block">
-                    Add a room →
-                  </Link>
+                  {canManageRooms() && (
+                    <p className="text-blue-600 hover:text-blue-800 mt-2 inline-block cursor-pointer"
+                       onClick={() => {
+                         setEditRoom(null);
+                         setShowRoomForm(true);
+                       }}>
+                      Add a room →
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -301,14 +428,16 @@ export default function SchoolDetail() {
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Responsible
                         </th>
-                        {/* <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Actions
-                        </th> */}
+                        {canManageRooms() && (
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                          </th>
+                        )}
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {rooms.slice(0, 20).map((room) => (
-                        <tr key={room.id}>
+                      {rooms.map((room) => (
+                        <tr key={room.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-medium text-blue-600">
                               <Link href={`/rooms/${room.id}`}>
@@ -331,24 +460,33 @@ export default function SchoolDetail() {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {room.responsible_user_name || 'Not assigned'}
                           </td>
-                          {/* <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <Link href={`/rooms/${room.id}/items`}>
-                              <button className="text-blue-600 hover:text-blue-900 mr-4">
-                                View Items
-                              </button>
-                            </Link>
-                          </td> */}
+                          {canManageRooms() && (
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                              <div className="flex space-x-2">
+                                {/* <Link href={`/rooms/${room.id}`}>
+                                  <button className="px-3 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200">
+                                    View
+                                  </button>
+                                </Link> */}
+                                <button
+                                  onClick={() => handleEditRoom(room)}
+                                  className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteRoom(room.id)}
+                                  className="px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                </div>
-              )}
-              {rooms.length > 20 && (
-                <div className="px-4 py-3 bg-gray-50 text-right sm:px-6">
-                  <Link href={`/schools/${schoolId}/rooms`} className="text-blue-600 hover:text-blue-800">
-                    View all {rooms.length} rooms →
-                  </Link>
                 </div>
               )}
             </div>
