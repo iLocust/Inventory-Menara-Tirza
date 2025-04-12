@@ -164,7 +164,7 @@ export default function RoomDetail() {
       
       if (editItem) {
         // Update existing item
-        await fetch(`/api/items/${editItem.id}`, {
+        await fetch(`/api/items/${editItem.id}?user_id=${userId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',

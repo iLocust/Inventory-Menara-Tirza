@@ -62,7 +62,7 @@ export async function PUT(request, { params }) {
     // Get query parameters for user ID
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('user_id');
-    console.log('Delete item request with user_id:', userId);
+    console.log('Update item request with user_id:', userId);
     
     // Check if item exists
     const item = await getItemById(id);
@@ -113,32 +113,140 @@ export async function PUT(request, { params }) {
       }
     }
     
-    await db.run(
-      `UPDATE items SET 
-        name = ?, 
-        category_id = ?, 
-        room_id = ?, 
-        quantity = ?, 
-        condition = ?, 
-        acquisition_date = ?, 
-        notes = ?,
-        updatedAt = CURRENT_TIMESTAMP
-      WHERE id = ?`,
-      [
-        body.name,
-        body.category_id,
-        body.room_id,
-        body.quantity || 0,
-        body.condition || 'Good',
-        body.acquisition_date || null,
-        body.notes || '',
-        id
-      ]
-    );
+    // Record history for update
+    const recordUpdateHistory = async (oldItem, newData) => {
+      // Track all changes
+      let changes = [];
+      let hasChanges = false;
+      
+      // Check if quantity has changed
+      const oldQuantity = parseInt(oldItem.quantity);
+      const newQuantity = parseInt(newData.quantity || 0);
+      
+      if (oldQuantity !== newQuantity) {
+        changes.push(`Quantity changed from ${oldQuantity} to ${newQuantity}`);
+        hasChanges = true;
+        console.log(`Recording quantity change for item ${oldItem.id}: ${oldQuantity} -> ${newQuantity}`);
+      }
+      
+      // Check if name has changed
+      if (oldItem.name !== newData.name) {
+        changes.push(`Name changed from "${oldItem.name}" to "${newData.name}"`);
+        hasChanges = true;
+        console.log(`Recording name change for item ${oldItem.id}: ${oldItem.name} -> ${newData.name}`);
+      }
+      
+      // Check for condition change
+      if (oldItem.condition !== newData.condition) {
+        changes.push(`Condition changed from "${oldItem.condition}" to "${newData.condition}"`);
+        hasChanges = true;
+      }
+      
+      // If there are no significant changes, we might skip recording
+      if (!hasChanges) {
+        const oldProps = JSON.stringify({
+          name: oldItem.name,
+          category_id: oldItem.category_id,
+          room_id: oldItem.room_id,
+          quantity: oldItem.quantity,
+          condition: oldItem.condition
+        });
+        
+        const newProps = JSON.stringify({
+          name: newData.name,
+          category_id: newData.category_id,
+          room_id: newData.room_id,
+          quantity: newData.quantity,
+          condition: newData.condition
+        });
+        
+        if (oldProps !== newProps) {
+          console.log('Other properties changed:', oldProps, '->', newProps);
+          hasChanges = true;
+          changes.push('Other properties updated');
+        }
+      }
+      
+      // Create notes from all changes
+      let notes = changes.length > 0 ? changes.join('; ') : `Item updated: ${oldItem.name}`;
+      
+      // Only record if there are actual changes
+      if (hasChanges) {
+        console.log('Recording update to history for item:', oldItem.id, 'with user_id:', userId);
+        console.log('Changes:', notes);
+        
+        await db.run(
+          `INSERT INTO item_history (
+            item_id,
+            item_name,
+            room_id,
+            action_type,
+            quantity,
+            notes,
+            user_id
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            oldItem.id,
+            oldItem.name,
+            parseInt(newData.room_id) || parseInt(oldItem.room_id),
+            'update',
+            newQuantity, // Store the new quantity value instead of the difference
+            notes,
+            userId || null
+          ]
+        );
+        return true; // Indicate that history was recorded
+      }
+      
+      console.log('No significant changes detected, skipping history record');
+      return false; // Indicate no history was recorded
+    };
     
-    const updatedItem = await getItemById(id);
+    // Start a transaction
+    await db.run('BEGIN TRANSACTION');
     
-    return NextResponse.json(updatedItem);
+    try {
+      // Record history before updating
+      const historyRecorded = await recordUpdateHistory(item, body);
+      
+      // Log the result
+      console.log('History recorded:', historyRecorded);
+      
+      // Perform the update
+      await db.run(
+        `UPDATE items SET 
+          name = ?, 
+          category_id = ?, 
+          room_id = ?, 
+          quantity = ?, 
+          condition = ?, 
+          acquisition_date = ?, 
+          notes = ?,
+          updatedAt = CURRENT_TIMESTAMP
+        WHERE id = ?`,
+        [
+          body.name,
+          body.category_id,
+          body.room_id,
+          body.quantity || 0,
+          body.condition || 'Good',
+          body.acquisition_date || null,
+          body.notes || '',
+          id
+        ]
+      );
+      
+      // Commit the transaction
+      await db.run('COMMIT');
+      
+      const updatedItem = await getItemById(id);
+      
+      return NextResponse.json(updatedItem);
+    } catch (error) {
+      // Rollback in case of error
+      await db.run('ROLLBACK');
+      throw error;
+    }
   } catch (error) {
     console.error(`Error updating item ${params.id}:`, error);
     return NextResponse.json(
