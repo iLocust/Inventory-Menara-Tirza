@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import Breadcrumb from '../../../components/Breadcrumb';
+import ItemForm from '../../../components/ItemForm';
+import TransferForm from '../../../components/TransferForm';
+import TransferHistory from '../../../components/TransferHistory';
 
 export default function RoomDetail() {
   const params = useParams();
@@ -15,6 +18,11 @@ export default function RoomDetail() {
   const [userRole, setUserRole] = useState('');
   const [userSchoolId, setUserSchoolId] = useState(null);
   const [userName, setUserName] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [editItem, setEditItem] = useState(null);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [categories, setCategories] = useState([]);
   
   // Fetch user role and school
   useEffect(() => {
@@ -44,6 +52,103 @@ export default function RoomDetail() {
       (userRole === 'kepala_sekolah' && parseInt(userSchoolId) === room.school_id);
   };
 
+  // Handle item deletion
+  const handleDelete = async (id) => {
+    if (confirm('Are you sure you want to delete this item?')) {
+      try {
+        await fetch(`/api/items/${id}`, {
+          method: 'DELETE',
+        });
+        
+        // Refresh the item list
+        await fetchRoomData();
+      } catch (error) {
+        console.error('Error deleting item:', error);
+      }
+    }
+  };
+
+  // Handle editing an item
+  const handleEdit = (item) => {
+    setEditItem(item);
+    setShowForm(true);
+  };
+
+  // Handle transfer modal
+  const handleTransferClick = (item) => {
+    setSelectedItem(item);
+    setShowTransferModal(true);
+  };
+
+  // Handle transfer submission
+  const handleTransferSubmit = async (formData) => {
+    try {
+      const response = await fetch('/api/transfers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        alert(`Error: ${errorData.message}`);
+        return;
+      }
+      
+      // Close the modal
+      setShowTransferModal(false);
+      setSelectedItem(null);
+      
+      // Refresh the item list
+      await fetchRoomData();
+    } catch (error) {
+      console.error('Error creating transfer:', error);
+      alert('Failed to transfer item. Please try again.');
+    }
+  };
+
+  // Handle form submission (create/update)
+  const handleFormSubmit = async (formData) => {
+    try {
+      // Make sure the item is assigned to the current room
+      const itemData = {
+        ...formData,
+        room_id: parseInt(roomId)
+      };
+      
+      if (editItem) {
+        // Update existing item
+        await fetch(`/api/items/${editItem.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(itemData),
+        });
+      } else {
+        // Create new item
+        await fetch('/api/items', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(itemData),
+        });
+      }
+      
+      // Reset form state
+      setEditItem(null);
+      setShowForm(false);
+      
+      // Refresh the item list
+      await fetchRoomData();
+    } catch (error) {
+      console.error('Error saving item:', error);
+    }
+  };
+
   // Function to fetch room data that can be called to refresh
   const fetchRoomData = async () => {
       setLoading(true);
@@ -71,6 +176,17 @@ export default function RoomDetail() {
   useEffect(() => {
     if (roomId) {
       fetchRoomData();
+      // Fetch categories for the form
+      const fetchCategories = async () => {
+        try {
+          const categoriesRes = await fetch('/api/reference/categories');
+          const categoriesData = await categoriesRes.json();
+          setCategories(categoriesData);
+        } catch (error) {
+          console.error('Error fetching categories:', error);
+        }
+      };
+      fetchCategories();
     }
   }, [roomId]);
   
@@ -206,16 +322,40 @@ export default function RoomDetail() {
             </div>
           </div>
 
+          {/* Add Item Form */}
+          {showForm && (
+            <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-white">
+              <h3 className="text-lg font-semibold mb-4">
+                {editItem ? 'Edit Item' : 'Add New Item'}
+              </h3>
+              <ItemForm
+                initialData={{...editItem, room_id: parseInt(roomId)}}
+                onSubmit={handleFormSubmit}
+                onCancel={() => {
+                  setEditItem(null);
+                  setShowForm(false);
+                }}
+                rooms={[room]} // Only show the current room
+                categories={categories}
+                selectedSchool={room.school_id.toString()}
+              />
+            </div>
+          )}
+          
           {/* Items in Room */}
           <div className="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
             <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
               <h3 className="text-lg leading-6 font-medium text-gray-900">Items in Room</h3>
               {canManageRoom() && (
-                <Link href={`/rooms/${roomId}/items`}>
-                  <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-                    Manage Items
-                  </button>
-                </Link>
+                <button
+                  className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                  onClick={() => {
+                    setEditItem(null);
+                    setShowForm(!showForm);
+                  }}
+                >
+                  {showForm ? 'Cancel' : 'Add New Item'}
+                </button>
               )}
             </div>
             <div className="border-t border-gray-200">
@@ -245,9 +385,11 @@ export default function RoomDetail() {
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Condition
                         </th>
-                        {/* <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Actions
-                        </th> */}
+                        {canManageRoom() && (
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                          </th>
+                        )}
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -265,15 +407,30 @@ export default function RoomDetail() {
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">{item.condition}</div>
                           </td>
-                          {/* <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            {canManageRoom() && (
-                              <Link href={`/items?editItem=${item.id}`}>
-                                <button className="text-blue-600 hover:text-blue-900 mr-4">
+                          {canManageRoom() && (
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => handleEdit(item)}
+                                  className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200"
+                                >
                                   Edit
                                 </button>
-                              </Link>
-                            )}
-                          </td> */}
+                                <button
+                                  onClick={() => handleTransferClick(item)}
+                                  className="px-3 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200"
+                                >
+                                  Transfer
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(item.id)}
+                                  className="px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
@@ -284,6 +441,40 @@ export default function RoomDetail() {
           </div>
         </div>
       </div>
+
+      {/* Transfer History Section */}
+      {canManageRoom() && (
+        <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+          <div className="px-4 sm:px-0">
+            <div className="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
+              <div className="px-4 py-5 sm:px-6">
+                <h3 className="text-lg leading-6 font-medium text-gray-900">Transfer History</h3>
+              </div>
+              <div className="border-t border-gray-200">
+                <TransferHistory roomId={roomId} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Transfer Modal */}
+      {showTransferModal && selectedItem && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md mx-auto p-6">
+            <h3 className="text-lg font-semibold mb-4">Transfer Item</h3>
+            <TransferForm
+              item={selectedItem}
+              onSubmit={handleTransferSubmit}
+              onCancel={() => {
+                setShowTransferModal(false);
+                setSelectedItem(null);
+              }}
+              schoolId={room?.school_id}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
