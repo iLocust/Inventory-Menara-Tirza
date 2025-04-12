@@ -111,7 +111,7 @@ export async function POST(request) {
       );
     }
     
-    // Verify source room
+    // Verify both rooms exist
     const sourceRoom = await db.get('SELECT * FROM rooms WHERE id = ?', body.source_room_id);
     if (!sourceRoom) {
       return NextResponse.json(
@@ -120,20 +120,11 @@ export async function POST(request) {
       );
     }
     
-    // Verify destination room
     const destRoom = await db.get('SELECT * FROM rooms WHERE id = ?', body.destination_room_id);
     if (!destRoom) {
       return NextResponse.json(
         { message: 'Destination room not found' },
         { status: 404 }
-      );
-    }
-    
-    // Verify both rooms are in same school
-    if (sourceRoom.school_id !== destRoom.school_id) {
-      return NextResponse.json(
-        { message: 'Cannot transfer items between different schools' },
-        { status: 400 }
       );
     }
     
@@ -222,6 +213,16 @@ export async function POST(request) {
       
       // Also record to item_history
       try {
+        // Get school names for source and destination
+        const sourceSchool = await db.get('SELECT s.name FROM schools s JOIN rooms r ON s.id = r.school_id WHERE r.id = ?', body.source_room_id);
+        const destSchool = await db.get('SELECT s.name FROM schools s JOIN rooms r ON s.id = r.school_id WHERE r.id = ?', body.destination_room_id);
+
+        // Prepare notes with school info if it's a cross-school transfer
+        let transferNotes = body.notes || 'Item transferred';
+        if (sourceRoom.school_id !== destRoom.school_id) {
+          transferNotes = `${transferNotes} (Transfer dari ${sourceSchool.name} ke ${destSchool.name})`;
+        }
+        
         await db.run(
           `INSERT INTO item_history (
             item_id,
@@ -240,7 +241,7 @@ export async function POST(request) {
             item.name,
             'transfer',
             body.quantity,
-            body.notes || 'Item transferred',
+            transferNotes,
             userId,
             body.source_room_id,
             body.destination_room_id,

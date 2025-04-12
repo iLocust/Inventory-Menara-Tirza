@@ -16,10 +16,18 @@ export async function GET(request) {
     let query = `
       SELECT
         h.*,
-        u.name as user_name
+        u.name as user_name,
+        sr.school_id as source_school_id,
+        dr.school_id as destination_school_id,
+        ss.name as source_school_name,
+        ds.name as destination_school_name
       FROM
         item_history h
       LEFT JOIN users u ON h.user_id = u.id
+      LEFT JOIN rooms sr ON h.source_room_id = sr.id
+      LEFT JOIN rooms dr ON h.destination_room_id = dr.id
+      LEFT JOIN schools ss ON sr.school_id = ss.id
+      LEFT JOIN schools ds ON dr.school_id = ds.id
     `;
     
     const params = [];

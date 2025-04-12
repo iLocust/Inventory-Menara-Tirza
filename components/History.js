@@ -161,10 +161,15 @@ export default function History({ roomId }) {
                   {entry.action_type === 'transfer' ? (
                     <div className="text-sm">
                       <div className={isSource ? 'font-semibold text-red-700' : 'text-gray-900'}>
-                        From: {entry.source_room_name}
+                        From: {entry.source_room_name} 
                       </div>
                       <div className={isDestination ? 'font-semibold text-green-700' : 'text-gray-900'}>
                         To: {entry.destination_room_name}
+                        {entry.source_school_id !== entry.destination_school_id && (
+                          <span className="ml-1 text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full">
+                            Transfer Antar Sekolah
+                          </span>
+                        )}
                       </div>
                     </div>
                   ) : (
