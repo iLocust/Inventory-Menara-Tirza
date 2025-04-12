@@ -220,6 +220,39 @@ export async function POST(request) {
       // Commit the transaction
       await db.run('COMMIT');
       
+      // Also record to item_history
+      try {
+        await db.run(
+          `INSERT INTO item_history (
+            item_id,
+            item_name,
+            action_type,
+            quantity,
+            notes,
+            user_id,
+            source_room_id,
+            destination_room_id,
+            source_room_name,
+            destination_room_name
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            body.item_id,
+            item.name,
+            'transfer',
+            body.quantity,
+            body.notes || 'Item transferred',
+            userId,
+            body.source_room_id,
+            body.destination_room_id,
+            sourceRoom.name,
+            destRoom.name
+          ]
+        );
+      } catch (historyError) {
+        console.error('Error recording to history:', historyError);
+        // Continue anyway as the transfer was completed successfully
+      }
+      
       // Get the newly inserted transfer with joined data
       const newTransfer = await db.get(`
         SELECT

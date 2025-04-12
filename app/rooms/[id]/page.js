@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation';
 import Breadcrumb from '../../../components/Breadcrumb';
 import ItemForm from '../../../components/ItemForm';
 import TransferForm from '../../../components/TransferForm';
-import TransferHistory from '../../../components/TransferHistory';
+import History from '../../../components/History';
 
 export default function RoomDetail() {
   const params = useParams();
@@ -56,7 +56,21 @@ export default function RoomDetail() {
   const handleDelete = async (id) => {
     if (confirm('Are you sure you want to delete this item?')) {
       try {
-        await fetch(`/api/items/${id}`, {
+        // Get current user ID
+        let userId = null;
+        try {
+          const userResponse = await fetch('/api/auth/me');
+          if (userResponse.ok) {
+            const userData = await userResponse.json();
+            if (userData.user) {
+              userId = userData.user.id;
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching user:', error);
+        }
+        
+        await fetch(`/api/items/${id}?user_id=${userId}`, {
           method: 'DELETE',
         });
         
@@ -127,10 +141,25 @@ export default function RoomDetail() {
   // Handle form submission (create/update)
   const handleFormSubmit = async (formData) => {
     try {
+      // Get current user ID
+      let userId = null;
+      try {
+        const userResponse = await fetch('/api/auth/me');
+        if (userResponse.ok) {
+          const userData = await userResponse.json();
+          if (userData.user) {
+            userId = userData.user.id;
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user:', error);
+      }
+      
       // Make sure the item is assigned to the current room
       const itemData = {
         ...formData,
-        room_id: parseInt(roomId)
+        room_id: parseInt(roomId),
+        user_id: userId
       };
       
       if (editItem) {
@@ -457,16 +486,16 @@ export default function RoomDetail() {
         </div>
       </div>
 
-      {/* Transfer History Section */}
+      {/* History Section */}
       {canManageRoom() && (
         <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
           <div className="px-4 sm:px-0">
             <div className="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
               <div className="px-4 py-5 sm:px-6">
-                <h3 className="text-lg leading-6 font-medium text-gray-900">Transfer History</h3>
+                <h3 className="text-lg leading-6 font-medium text-gray-900">Item History</h3>
               </div>
               <div className="border-t border-gray-200">
-                <TransferHistory roomId={roomId} />
+                <History roomId={roomId} />
               </div>
             </div>
           </div>

@@ -59,6 +59,11 @@ export async function PUT(request, { params }) {
     
     const body = await request.json();
     
+    // Get query parameters for user ID
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('user_id');
+    console.log('Delete item request with user_id:', userId);
+    
     // Check if item exists
     const item = await getItemById(id);
     
@@ -148,6 +153,10 @@ export async function DELETE(request, { params }) {
   try {
     const id = params.id;
     
+    // Get query parameters for user ID
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('user_id');
+    
     // Check if user has access to delete this item
     const hasAccess = await canAccessItem(id);
     if (!hasAccess) {
@@ -179,11 +188,48 @@ export async function DELETE(request, { params }) {
       );
     }
     
-    await db.run('DELETE FROM items WHERE id = ?', id);
     
-    return NextResponse.json(
-      { message: `Item ${id} deleted successfully` }
-    );
+    // Start a transaction to ensure both history and delete operations complete together
+    await db.run('BEGIN TRANSACTION');
+    
+    try {
+      // Record to history before deleting
+      console.log('Recording delete to history for item:', id, 'with user_id:', userId);
+      await db.run(
+        `INSERT INTO item_history (
+          item_id,
+          item_name,
+          room_id,
+          action_type,
+          quantity,
+          notes,
+          user_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id,
+          item.name,
+          item.room_id,
+          'delete',
+          item.quantity,
+          `Item deleted: ${item.name}`,
+          userId || null
+        ]
+      );
+      
+      // Delete the item
+      await db.run('DELETE FROM items WHERE id = ?', id);
+      
+      // Commit the transaction
+      await db.run('COMMIT');
+      
+      return NextResponse.json(
+        { message: `Item ${id} deleted successfully` }
+      );
+    } catch (error) {
+      // Rollback in case of error
+      await db.run('ROLLBACK');
+      throw error;
+    }
   } catch (error) {
     console.error(`Error deleting item ${params.id}:`, error);
     return NextResponse.json(

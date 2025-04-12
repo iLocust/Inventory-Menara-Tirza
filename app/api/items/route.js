@@ -146,6 +146,33 @@ export async function POST(request) {
       WHERE i.id = ?
     `, result.lastID);
     
+    // Record to history
+    try {
+      await db.run(
+        `INSERT INTO item_history (
+          item_id,
+          item_name,
+          room_id,
+          action_type,
+          quantity,
+          notes,
+          user_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          newItem.id,
+          newItem.name,
+          newItem.room_id,
+          'add',
+          newItem.quantity,
+          `New item added: ${newItem.name}`,
+          body.user_id || null
+        ]
+      );
+    } catch (historyError) {
+      console.error('Error recording to history:', historyError);
+      // Continue anyway as the item was created successfully
+    }
+    
     return NextResponse.json(newItem, { status: 201 });
   } catch (error) {
     console.error('Error creating item:', error);
