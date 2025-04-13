@@ -2,13 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import SchoolForm from '../../components/SchoolForm';
 import Breadcrumb from '../../components/Breadcrumb';
 
 export default function SchoolsPage() {
   const [schools, setSchools] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
   const [userRole, setUserRole] = useState('');
   const [userSchoolId, setUserSchoolId] = useState(null);
   
@@ -31,9 +29,6 @@ export default function SchoolsPage() {
     
     fetchUserRole();
   }, []);
-  
-  // Check if user has permission to create schools
-  const canManageSchools = userRole === 'admin';
   
   // Check if user can edit a specific school
   const canEditSchool = (schoolId) => {
@@ -71,26 +66,6 @@ export default function SchoolsPage() {
 
   // Note: Edit and Delete functionality moved to individual school pages
 
-  // Handle form submission (create only)
-  const handleFormSubmit = async (formData) => {
-    try {
-      // Create new school
-      await fetch('/api/schools', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-      
-      // Reset form state and refresh data
-      setShowForm(false);
-      fetchSchools();
-    } catch (error) {
-      console.error('Error saving school:', error);
-    }
-  };
-
   return (
     <div>
       <Breadcrumb />
@@ -104,29 +79,7 @@ export default function SchoolsPage() {
         <div className="px-4 py-6 sm:px-0">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold text-gray-800">All Schools</h2>
-            {canManageSchools && (
-              <button
-                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-                onClick={() => setShowForm(!showForm)}
-              >
-                {showForm ? 'Cancel' : 'Add New School'}
-              </button>
-            )}
           </div>
-
-          {showForm && (
-            <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-white">
-              <h3 className="text-lg font-semibold mb-4">
-                Add New School
-              </h3>
-              <SchoolForm
-                initialData={null}
-                onSubmit={handleFormSubmit}
-                onCancel={() => setShowForm(false)}
-                userRole={userRole}
-              />
-            </div>
-          )}
 
           {loading ? (
             <div className="text-center py-8">
@@ -135,7 +88,7 @@ export default function SchoolsPage() {
           ) : schools.length === 0 ? (
             <div className="bg-white rounded-lg shadow overflow-hidden">
               <div className="p-8 text-center">
-                <p className="text-gray-500">No schools found. Add your first school!</p>
+                <p className="text-gray-500">No schools found.</p>
               </div>
             </div>
           ) : (

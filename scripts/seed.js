@@ -19,22 +19,16 @@ async function seed() {
     console.log('Adding schools...');
     const schools = [
       { 
-        name: 'SMA Negeri 1 Jakarta', 
+        name: 'Menara Tirza', 
         address: 'Jl. Matraman Raya No. 45, Jakarta Pusat', 
         phone: '021-5550101', 
         email: 'info@sman1jakarta.sch.id' 
       },
       { 
-        name: 'SMP Negeri 2 Bandung', 
+        name: 'Menara Kasih', 
         address: 'Jl. Surapati No. 12, Bandung', 
         phone: '022-7301234', 
         email: 'info@smpn2bandung.sch.id' 
-      },
-      { 
-        name: 'SD Negeri 3 Surabaya', 
-        address: 'Jl. Pemuda No. 33, Surabaya', 
-        phone: '031-8432157', 
-        email: 'info@sdn3sby.sch.id' 
       }
     ];
     
@@ -45,10 +39,19 @@ async function seed() {
       );
     }
     
+    // Now get the actual school IDs from the database to use when creating users
+    console.log('Getting school IDs...');
+    const schoolRows = await db.all('SELECT id, name FROM schools');
+    const schoolIds = {};
+    schoolRows.forEach((school, index) => {
+      schoolIds[index + 1] = school.id;
+    });
+    
     // Add users with the 5 specified roles
     console.log('Adding users...');
-    const users = [
-      // Admin/Head Office
+    
+    // Add admin users first (they don't have school_id)
+    const adminUsers = [
       { 
         name: 'Achieles Zakarias', 
         no_induk: '0001', 
@@ -62,27 +65,37 @@ async function seed() {
         school_id: null, 
         phone: '081356464187', 
         role: 'admin' 
-      },
-      
+      }
+    ];
+    
+    for (const user of adminUsers) {
+      await db.run(
+        'INSERT INTO users (name, no_induk, school_id, phone, role) VALUES (?, ?, ?, ?, ?)',
+        [user.name, user.no_induk, user.school_id, user.phone, user.role]
+      );
+    }
+    
+    // Now add school-specific users, making sure to use actual school IDs
+    const schoolUsers = [
       // Kepala Sekolah - One for each school
       { 
         name: 'Tutut Ratnasari Wahyu W', 
         no_induk: '1001', 
-        school_id: 1, 
+        school_position: 1, 
         phone: '081578901234', 
         role: 'kepala_sekolah' 
       },
       { 
         name: 'Dra. Rina Kartika', 
         no_induk: '1002', 
-        school_id: 2, 
+        school_position: 2, 
         phone: '081987654321', 
         role: 'kepala_sekolah' 
       },
       { 
         name: 'M.Pd. Joko Widodo', 
         no_induk: '1003', 
-        school_id: 3, 
+        school_position: 3, 
         phone: '081856789012', 
         role: 'kepala_sekolah' 
       },
@@ -91,21 +104,21 @@ async function seed() {
       { 
         name: 'TUTUT RATNASARI WAHYU W.', 
         no_induk: '0405028', 
-        school_id: 1, 
+        school_position: 1, 
         phone: '085691638082', 
         role: 'guru' 
       },
       { 
         name: 'Hadi Supriyanto', 
         no_induk: '2002', 
-        school_id: 2, 
+        school_position: 2, 
         phone: '085633445566', 
         role: 'guru' 
       },
       { 
         name: 'Rina Wati', 
         no_induk: '2003', 
-        school_id: 3, 
+        school_position: 3, 
         phone: '082155667788', 
         role: 'guru' 
       },
@@ -114,21 +127,21 @@ async function seed() {
       { 
         name: 'Agus Darmawan', 
         no_induk: '3001', 
-        school_id: 1, 
+        school_position: 1, 
         phone: '081199887766', 
         role: 'staff' 
       },
       { 
         name: 'Tuti Setiawati', 
         no_induk: '3002', 
-        school_id: 2, 
+        school_position: 2, 
         phone: '082212349876', 
         role: 'staff' 
       },
       { 
         name: 'Bambang Tri', 
         no_induk: '3003', 
-        school_id: 3, 
+        school_position: 3, 
         phone: '083366554433', 
         role: 'staff' 
       },
@@ -137,61 +150,67 @@ async function seed() {
       { 
         name: 'Rizky Pratama', 
         no_induk: '4001', 
-        school_id: 1, 
+        school_position: 1, 
         phone: '087888776655', 
         role: 'murid' 
       },
       { 
         name: 'Dian Safitri', 
         no_induk: '4002', 
-        school_id: 2, 
+        school_position: 2, 
         phone: '087766554433', 
         role: 'murid' 
       },
       { 
         name: 'Wahyu Nugroho', 
         no_induk: '4003', 
-        school_id: 3, 
+        school_position: 3, 
         phone: '085544332211', 
         role: 'murid' 
       }
     ];
     
-    for (const user of users) {
-      await db.run(
-        'INSERT INTO users (name, no_induk, school_id, phone, role) VALUES (?, ?, ?, ?, ?)',
-        [user.name, user.no_induk, user.school_id, user.phone, user.role]
-      );
+    // Insert school users with the correct school_id
+    for (const user of schoolUsers) {
+      // Only insert if we have a matching school
+      if (schoolIds[user.school_position]) {
+        await db.run(
+          'INSERT INTO users (name, no_induk, school_id, phone, role) VALUES (?, ?, ?, ?, ?)',
+          [user.name, user.no_induk, schoolIds[user.school_position], user.phone, user.role]
+        );
+      } else {
+        console.log(`Skipping user ${user.name} as school position ${user.school_position} doesn't exist`);
+      }
     }
     
     // Add rooms for each school
     console.log('Adding rooms...');
     
-    // Get school IDs
-    const schoolRows = await db.all('SELECT id, name FROM schools');
+    // We already have schoolRows from earlier
     
     // Get user IDs by role for room assignment
-    const adminUsers = await db.all("SELECT id FROM users WHERE role = 'admin'");
-    const kepalaSekolahUsers = await db.all("SELECT id, school_id FROM users WHERE role = 'kepala_sekolah'");
-    const guruUsers = await db.all("SELECT id, school_id FROM users WHERE role = 'guru'");
-    const staffUsers = await db.all("SELECT id, school_id FROM users WHERE role = 'staff'");
+    // Using different variable names to avoid redeclaration
+    const adminUsersList = await db.all("SELECT id FROM users WHERE role = 'admin'");
+    const kepalaSekolahList = await db.all("SELECT id, school_id FROM users WHERE role = 'kepala_sekolah'");
+    const guruList = await db.all("SELECT id, school_id FROM users WHERE role = 'guru'");
+    const staffList = await db.all("SELECT id, school_id FROM users WHERE role = 'staff'");
     
     // Function to get appropriate kepala sekolah for a school
     const getKepalaSekolahForSchool = (schoolId) => {
-      const kepala = kepalaSekolahUsers.find(u => u.school_id === schoolId);
-      return kepala ? kepala.id : kepalaSekolahUsers[0].id;
+      const kepala = kepalaSekolahList.find(u => u.school_id === schoolId);
+      return kepala ? kepala.id : (kepalaSekolahList.length > 0 ? kepalaSekolahList[0].id : null);
     };
     
     // Function to get appropriate guru for a school
     const getGuruForSchool = (schoolId) => {
-      const guru = guruUsers.find(u => u.school_id === schoolId);
-      return guru ? guru.id : guruUsers[0].id;
+      const guru = guruList.find(u => u.school_id === schoolId);
+      return guru ? guru.id : (guruList.length > 0 ? guruList[0].id : null);
     };
     
     // Function to get appropriate staff for a school
     const getStaffForSchool = (schoolId) => {
-      const staff = staffUsers.find(u => u.school_id === schoolId);
-      return staff ? staff.id : staffUsers[0].id;
+      const staff = staffList.find(u => u.school_id === schoolId);
+      return staff ? staff.id : (staffList.length > 0 ? staffList[0].id : null);
     };
     
     for (const school of schoolRows) {

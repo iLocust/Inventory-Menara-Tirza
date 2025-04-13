@@ -7,6 +7,7 @@ import Breadcrumb from '../../../components/Breadcrumb';
 import ItemForm from '../../../components/ItemForm';
 import TransferForm from '../../../components/TransferForm';
 import History from '../../../components/History';
+import PDFExportButton from '../../../components/PDFExport';
 
 export default function RoomDetail() {
   const params = useParams();
@@ -302,6 +303,7 @@ export default function RoomDetail() {
               <p className="mt-1 text-sm text-gray-500">School: {room.school_name}</p>
             </div>
             <div className="mt-4 sm:mt-0 flex space-x-2">
+              <PDFExportButton room={room} items={items} />
               <Link href={`/schools/${room.school_id}`}>
                 <button className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded">
                   Back to School
