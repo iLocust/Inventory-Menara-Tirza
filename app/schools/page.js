@@ -32,17 +32,22 @@ export default function SchoolsPage() {
     fetchUserRole();
   }, []);
   
-  // Check if user has permission to create or delete schools
-  const canManageSchools = userRole !== 'kepala_sekolah';
+  // Check if user has permission to create schools
+  const canManageSchools = userRole === 'admin';
   
   // Check if user can edit a specific school
   const canEditSchool = (schoolId) => {
-    // Admin and other roles except kepala_sekolah can edit any school
-    if (userRole !== 'kepala_sekolah') return true;
+    // Admin can edit any school
+    if (userRole === 'admin') return true;
     
     // Kepala sekolah can only edit their own school
-    if (!userSchoolId) return false; // If not assigned to a school, can't edit any
-    return parseInt(userSchoolId) === schoolId;
+    if (userRole === 'kepala_sekolah') {
+      if (!userSchoolId) return false; // If not assigned to a school, can't edit any
+      return parseInt(userSchoolId) === schoolId;
+    }
+    
+    // Other roles cannot edit schools
+    return false;
   };
 
   // Fetch schools from the API

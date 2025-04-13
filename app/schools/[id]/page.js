@@ -50,17 +50,25 @@ export default function SchoolDetail() {
     fetchUserRole();
   }, []);
   
-  // Check if user has permission to create or delete schools
-  const canManageSchools = userRole !== 'kepala_sekolah';
+  // Check if user has permission to delete schools (admin only)
+  const canDeleteSchool = userRole === 'admin';
+  
+  // Check if user has permission to manage schools
+  const canManageSchools = userRole === 'kepala_sekolah' || userRole === 'admin';
   
   // Check if user can edit a specific school
   const canEditSchool = (schoolId) => {
-    // Admin and other roles except kepala_sekolah can edit any school
-    if (userRole !== 'kepala_sekolah') return true;
+    // Admin can edit any school
+    if (userRole === 'admin') return true;
     
     // Kepala sekolah can only edit their own school
-    if (!userSchoolId) return false; // If not assigned to a school, can't edit any
-    return parseInt(userSchoolId) === parseInt(schoolId);
+    if (userRole === 'kepala_sekolah') {
+      if (!userSchoolId) return false; // If not assigned to a school, can't edit any
+      return parseInt(userSchoolId) === parseInt(schoolId);
+    }
+    
+    // Other roles cannot edit schools
+    return false;
   };
 
   // Check if user has permission to manage rooms in this school
@@ -280,7 +288,7 @@ export default function SchoolDetail() {
                   {showForm ? 'Cancel' : 'Edit School'}
                 </button>
               )}
-              {canManageSchools && (
+              {canDeleteSchool && (
                 <button
                   onClick={() => handleDelete(schoolId)}
                   className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded"

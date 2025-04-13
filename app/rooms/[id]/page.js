@@ -46,10 +46,9 @@ export default function RoomDetail() {
   }, []);
   
   // Function to check if user has permission to manage this room
+  // Allow all roles to manage items
   const canManageRoom = () => {
-    if (!room) return false;
-    return userRole === 'admin' || 
-      (userRole === 'kepala_sekolah' && parseInt(userSchoolId) === room.school_id);
+    return true; // All roles can now manage items
   };
 
   // Handle item deletion
